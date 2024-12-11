@@ -1,0 +1,4 @@
+license_key: ${NEW_RELIC_LICENSE_KEY}
+log_file: /var/log/newrelic-infra/newrelic-infra.log
+log_to_stdout: false
+log_format: json

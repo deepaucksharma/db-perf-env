@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  mysql:
+    build: ./db-setup
+    container_name: mysql-newrelic
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER:-myuser}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-mypassword}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infrastructure/newrelic/newrelic-infra.yml:/etc/newrelic-infra.yml:ro
+      - ./infrastructure/newrelic/integrations.d/:/etc/newrelic-infra/integrations.d/:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  api:
+    build: ./services/api
+    container_name: api-layer
+    env_file: .env
+    environment:
+      MYSQL_HOST: mysql-newrelic
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
+      PORT: ${API_PORT:-3000}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  load-generator:
+    build: ./services/load-generator
+    container_name: load-generator
+    env_file: .env
+    environment:
+      API_URL: http://api-layer:${API_PORT:-3000}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}-LoadGen
+      K6_VUS: ${K6_VUS:-50}
+      K6_DURATION: ${K6_DURATION:-30m}
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      - api
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  newrelic-infra:
+    image: newrelic/infrastructure:latest
+    container_name: newrelic-infra
+    network_mode: host
+    pid: host
+    privileged: true
+    environment:
+      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NRIA_DISPLAY_NAME=mysql-performance-testing
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./newrelic-infra/integrations.d:/etc/newrelic-infra/integrations.d/
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+networks:
+  app-network:
+
+volumes:
+  mysql_data:

@@ -1,0 +1,7 @@
+[mysqld]
+performance_schema_max_digest_length = 4096
+performance_schema_max_sql_text_length = 4096
+performance_schema_events_statements_history_long_size = 10000
+performance_schema_events_waits_history_long_size = 10000
+performance_schema_max_table_instances = 16384
+performance_schema_max_thread_instances = 4096
