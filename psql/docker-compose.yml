@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  postgres:
+    build:
+      context: ./db-setup
+    container_name: postgres-perf
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_MONITOR_USER=${POSTGRES_MONITOR_USER}
+      - POSTGRES_MONITOR_PASSWORD=${POSTGRES_MONITOR_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-setup/config:/etc/postgresql:ro
+      - ./db-setup/logs:/var/log/postgresql:rw
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "5432:5432"
+
+  newrelic-infra-bundle:
+    build:
+      context: ./infrastructure/newrelic
+      dockerfile: Dockerfile
+      args:
+        - POSTGRES_INTEGRATION_BRANCH=${POSTGRES_INTEGRATION_BRANCH:-master}
+    container_name: infrastructure-bundle
+    cap_add:
+      - SYS_PTRACE
+    privileged: true
+    pid: host
+    network_mode: bridge
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infrastructure/newrelic/integrations.d/:/etc/newrelic-infra/integrations.d/:ro
+    environment:
+      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NRIA_DISPLAY_NAME=postgres-performance-testing
+      - NRIA_VERBOSE=1
+      - NR_POSTGRES_USERNAME=${POSTGRES_MONITOR_USER}
+      - NR_POSTGRES_PASSWORD=${POSTGRES_MONITOR_PASSWORD}
+      - NR_POSTGRES_HOSTNAME=postgres-perf
+      - NR_POSTGRES_PORT=5432
+      - NR_POSTGRES_DATABASE=${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    container_name: postgres-api
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NEW_RELIC_APP_NAME=${NEW_RELIC_APP_NAME}-api
+      - PORT=${API_PORT:-3000}
+      - NODE_ENV=${NODE_ENV:-production}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  k6:
+    build: ./k6
+    container_name: postgres-load
+    environment:
+      - API_URL=http://api:${API_PORT:-3000}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NEW_RELIC_APP_NAME=${NEW_RELIC_APP_NAME}-load
+      - K6_VUS=${K6_VUS:-10}
+      - K6_DURATION=${K6_DURATION:-5m}
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  default:
+    name: postgres-perf-network
+
+volumes:
+  postgres_data:

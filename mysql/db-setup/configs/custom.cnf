@@ -1,0 +1,13 @@
+[mysqld]
+# Buffer Pool Settings
+innodb_buffer_pool_size = 256M
+
+# Enable slow query logging
+slow_query_log = 1
+long_query_time = 1
+log_queries_not_using_indexes = 1
+
+# Small buffer sizes to impact performance
+sort_buffer_size = 2M
+read_buffer_size = 2M
+join_buffer_size = 2M

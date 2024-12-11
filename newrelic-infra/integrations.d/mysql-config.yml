@@ -1,9 +1,0 @@
-integrations:
-  - name: nri-mysql
-    interval: 15s
-    command: all
-    env:
-      HOSTNAME: mysql-perf
-      PORT: 3306
-      USERNAME: newrelic
-      PASSWORD: newrelic_password

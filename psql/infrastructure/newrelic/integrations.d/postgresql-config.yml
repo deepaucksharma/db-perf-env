@@ -1,0 +1,49 @@
+integrations:
+  - name: nri-postgresql
+    interval: 15s
+    env:
+      PG_HOST: postgres-perf
+      PG_PORT: 5432
+      PG_USERNAME: ${NR_POSTGRES_USERNAME}
+      PG_PASSWORD: ${NR_POSTGRES_PASSWORD}
+      PG_DATABASE: ${NR_POSTGRES_DATABASE}
+      PG_COLLECTION_LIST: ALL
+    labels:
+      env: performance-testing
+      role: primary
+
+    config:
+      connection_max_lifetime: 0
+      connection_max_idle_connections: 10
+      connection_max_open_connections: 50
+
+      collect:
+        activity_metrics: true
+        database_metrics: true
+        table_metrics: true
+        index_metrics: true
+        statement_metrics: true
+        lock_metrics: true
+        vacuum_metrics: true
+
+      custom_metrics:
+        - query: |
+            SELECT queryid, calls, total_time, mean_time, rows
+            FROM pg_stat_statements
+            ORDER BY total_time DESC
+            LIMIT 10
+          metrics:
+            total_time:
+              metric_type: gauge
+            calls:
+              metric_type: rate
+            rows:
+              metric_type: rate
+
+        - query: |
+            SELECT count(*) as active_connections
+            FROM pg_stat_activity
+            WHERE state = 'active'
+          metrics:
+            active_connections:
+              metric_type: gauge
