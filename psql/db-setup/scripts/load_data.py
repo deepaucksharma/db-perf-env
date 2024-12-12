@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import psycopg2
 import random
 from datetime import date, timedelta
@@ -48,13 +47,13 @@ def main():
 
         logger.info("Inserting departments...")
         cursor.executemany(
-            "INSERT INTO departments (dept_no, dept_name) VALUES (%s, %s) ON CONFLICT (dept_no) DO NOTHING",
+            "INSERT INTO app.departments (dept_no, dept_name) VALUES (%s, %s) ON CONFLICT (dept_no) DO NOTHING",
             departments
         )
         conn.commit()
 
         # Check if we already have data
-        cursor.execute("SELECT COUNT(*) FROM employees")
+        cursor.execute("SELECT COUNT(*) FROM app.employees")
         count = cursor.fetchone()[0]
         if count > 0:
             logger.info(f"Database already contains {count} employees. Skipping data load.")
@@ -86,21 +85,21 @@ def main():
 
             try:
                 cursor.executemany("""
-                    INSERT INTO employees
+                    INSERT INTO app.employees
                     (emp_no, birth_date, first_name, last_name, gender, hire_date)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (emp_no) DO NOTHING
                 """, employees_data)
 
                 cursor.executemany("""
-                    INSERT INTO salaries
+                    INSERT INTO app.salaries
                     (emp_no, salary, from_date, to_date)
                     VALUES (%s, %s, %s, %s)
                     ON CONFLICT (emp_no, from_date) DO NOTHING
                 """, salaries_data)
 
                 cursor.executemany("""
-                    INSERT INTO dept_emp
+                    INSERT INTO app.dept_emp
                     (emp_no, dept_no, from_date, to_date)
                     VALUES (%s, %s, %s, %s)
                     ON CONFLICT (emp_no, dept_no) DO NOTHING
@@ -124,7 +123,7 @@ def main():
         conn.commit()
 
         # Verify data load
-        cursor.execute("SELECT COUNT(*) FROM employees")
+        cursor.execute("SELECT COUNT(*) FROM app.employees")
         final_count = cursor.fetchone()[0]
         logger.info(f"Data load complete. Total employees: {final_count}")
 

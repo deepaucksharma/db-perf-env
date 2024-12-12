@@ -1,131 +1,164 @@
-require('newrelic');
-const express = require('express');
-const { Pool } = require('pg');
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { Rate, Trend } from 'k6/metrics';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+const errorRate = new Rate('errors');
+const queryDuration = new Trend('query_duration');
 
-const app = express();
+const NR_LICENSE_KEY = __ENV.NEW_RELIC_LICENSE_KEY;
+const NR_APP_NAME = __ENV.NEW_RELIC_APP_NAME || 'Postgres-Employees-Performance-Demo-LoadGen';
+const NR_METRICS_API = 'https://metric-api.newrelic.com/metric/v1';
 
-// Middleware to track all requests
-app.use((req, res, next) => {
-  const startTime = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    newrelic.recordMetric('Custom/API/RequestDuration', duration);
-  });
-  next();
-});
-
-// Health check
-app.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ status: 'healthy' });
-  } catch (err) {
-    res.status(500).json({ status: 'unhealthy', error: err.message });
-  }
-});
-
-// Complex query endpoint
-app.get('/query/complex', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const searchPattern = `${['A','B','C'][Math.floor(Math.random() * 3)]}%`;
-    const salaryThreshold = 50000 + Math.floor(Math.random() * 50000);
-
-    const { rows } = await client.query(`
-      WITH RankedEmployees AS (
-        SELECT 
-          e.emp_no,
-          e.name_upper,
-          d.dept_name,
-          s.salary,
-          ROW_NUMBER() OVER (PARTITION BY d.dept_no ORDER BY s.salary DESC) as salary_rank
-        FROM employees e
-        JOIN dept_emp de ON e.emp_no = de.emp_no
-        JOIN departments d ON de.dept_no = d.dept_no
-        JOIN salaries s ON e.emp_no = s.emp_no
-        WHERE 
-          e.name_upper LIKE $1
-          AND s.salary > $2
-          AND de.to_date = '9999-12-31'
-      )
-      SELECT * FROM RankedEmployees WHERE salary_rank <= 10
-    `, [searchPattern, salaryThreshold]);
-
-    res.json({ rows });
-  } catch (err) {
-    newrelic.noticeError(err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
-});
-
-// Lock generation endpoint
-app.get('/query/lock', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    
-    const { rows: [employee] } = await client.query(`
-      SELECT emp_no FROM employees 
-      WHERE emp_no IN (
-        SELECT emp_no FROM salaries 
-        WHERE salary > 100000
-      )
-      ORDER BY RANDOM() 
-      LIMIT 1
-    `);
-
-    if (!employee) {
-      await client.query('ROLLBACK');
-      throw new Error('No suitable employee found');
+export let options = {
+  vus: parseInt(__ENV.K6_VUS) || 50,
+  duration: __ENV.K6_DURATION || '30m',
+  thresholds: {
+    errors: ['rate<0.1'],
+    http_req_duration: ['p(95)<2000']
+  },
+  scenarios: {
+    io_heavy: {
+      executor: 'constant-vus',
+      vus: 20,
+      duration: '30m',
+      exec: 'runIOHeavy'
+    },
+    lock_heavy: {
+      executor: 'ramping-arrival-rate',
+      startRate: 5,
+      timeUnit: '1s',
+      preAllocatedVUs: 20,
+      stages: [
+        { duration: '3m', target: 15 },
+        { duration: '5m', target: 20 },
+        { duration: '2m', target: 10 }
+      ],
+      exec: 'runLockHeavy'
+    },
+    memory_heavy: {
+      executor: 'per-vu-iterations',
+      vus: 10,
+      iterations: 200,
+      maxDuration: '30m',
+      exec: 'runMemoryHeavy'
+    },
+    mixed: {
+      executor: 'ramping-arrival-rate',
+      startRate: 0,
+      timeUnit: '1s',
+      preAllocatedVUs: 30,
+      stages: [
+          { duration: '5m', target: 10 },
+          { duration: '20m', target: 10 },
+          { duration: '5m', target: 0 }
+      ],
+      exec: 'runMixed'
     }
-
-    await client.query('SELECT pg_sleep(1)');
-    await client.query(`
-      UPDATE employees 
-      SET last_name = last_name || '_updated' 
-      WHERE emp_no = $1
-    `, [employee.emp_no]);
-    
-    await client.query('COMMIT');
-    res.json({ status: 'success', emp_no: employee.emp_no });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    newrelic.noticeError(err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
   }
-});
+};
 
-// Stats refresh endpoint
-app.get('/query/stats', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const startTime = Date.now();
-    await client.query('REFRESH MATERIALIZED VIEW dept_stats');
-    const duration = Date.now() - startTime;
-    
-    res.json({ 
-      status: 'success', 
-      duration,
-      refreshed: new Date().toISOString() 
-    });
-  } catch (err) {
-    newrelic.noticeError(err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+function hitEndpoint(url, params = {}) {
+  const res = http.get(url, { params });
+  check(res, { 'status 200': (r) => r.status === 200 });
+  return res;
+}
+
+export function runIOHeavy() {
+  const prefixChar = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  const requests = [
+    { method: 'GET', url: `${__ENV.API_URL}/slow_query` },
+    { method: 'GET', url: `${__ENV.API_URL}/slow_query_force_table_scan`, params: { prefix: prefixChar } }
+  ];
+  const responses = http.batch(requests);
+  responses.forEach(res => {
+    check(res, { 'status 200': (r) => r.status === 200 });
+  });
+  sleep(Math.random() * 0.5 + 0.2);
+}
+
+export function runLockHeavy() {
+  hitEndpoint(`${__ENV.API_URL}/lock_contention`);
+  hitEndpoint(`${__ENV.API_URL}/lock_contention_salaries`);
+  hitEndpoint(`${__ENV.API_URL}/blocking_sessions`);
+  sleep(0.1);
+}
+
+export function runMemoryHeavy() {
+  const requests = [
+    { method: 'GET', url: `${__ENV.API_URL}/memory_pressure` },
+    { method: 'GET', url: `${__ENV.API_URL}/memory_pressure_generate_memory_pressure` }
+  ];
+  const responses = http.batch(requests);
+  responses.forEach(res => {
+    check(res, { 'status 200': (r) => r.status === 200 });
+  });
+  sleep(Math.random() * 2 + 1);
+}
+
+const ENDPOINTS = [
+  { name: 'slow_query', weight: 0.2 },
+  { name: 'slow_query_force_table_scan', weight: 0.2 },
+  { name: 'lock_contention', weight: 0.15 },
+  { name: 'lock_contention_salaries', weight: 0.15 },
+  { name: 'memory_pressure', weight: 0.15 },
+  { name: 'memory_pressure_generate_memory_pressure', weight: 0.15 }
+];
+
+function selectEndpoint() {
+  const r = Math.random();
+  let sum = 0;
+  for (const endpoint of ENDPOINTS) {
+    sum += endpoint.weight;
+    if (r <= sum) return endpoint.name;
   }
-});
+  return ENDPOINTS[0].name;
+}
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`API running on port ${port}`));
+export function runMixed() {
+  const queryType = selectEndpoint();
+  const url = `${__ENV.API_URL}/${queryType}`;
+  const startTime = new Date().getTime();
+  const response = http.get(url);
+  const duration = new Date().getTime() - startTime;
+  const success = check(response, { 'status is 200': (r) => r.status === 200 });
+  errorRate.add(!success);
+  queryDuration.add(duration);
+  sendMetricsToNewRelic({ queryType, duration, success, statusCode: response.status });
+  sleep(1);
+}
+
+function sendMetricsToNewRelic(metrics) {
+  const payload = [{
+    metrics: [
+      {
+        name: 'PostgresLoadTest',
+        type: 'gauge',
+        value: metrics.duration,
+        timestamp: Date.now(),
+        attributes: {
+          queryType: metrics.queryType,
+          success: metrics.success,
+          statusCode: metrics.statusCode,
+          virtualUsers: options.vus
+        }
+      }
+    ]
+  }];
+
+  const headers = {
+    'Api-Key': NR_LICENSE_KEY,
+    'Content-Type': 'application/json'
+  };
+  
+  const response = http.post(NR_METRICS_API, JSON.stringify(payload), { headers });
+  if (response.status >= 400) {
+    console.error(`Error sending metrics to New Relic: ${response.status} - ${response.body}`);
+  }
+}
+
+export default function() {
+    runIOHeavy();
+    runLockHeavy();
+    runMemoryHeavy();
+    runMixed();
+}

@@ -1,6 +1,4 @@
 FROM grafana/k6:latest
-
-COPY scripts/load-test.js /scripts/load-test.js
-
+COPY scripts/ /scripts/
 ENTRYPOINT ["k6", "run"]
 CMD ["/scripts/load-test.js"]

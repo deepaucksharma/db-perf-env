@@ -1,12 +1,5 @@
--- Create a sample view for reporting
-CREATE VIEW app.user_summary AS
-SELECT
-    COUNT(*) AS total_users,
-    MAX(created_at) AS latest_user_created
-FROM app.users;
-
 -- Employee statistics view
-CREATE OR REPLACE VIEW employee_stats AS
+CREATE OR REPLACE VIEW app.employee_stats AS
 SELECT
     date_part('year', birth_date) as birth_year,
     gender,
@@ -17,7 +10,7 @@ FROM app.employees
 GROUP BY date_part('year', birth_date), gender;
 
 -- Salary metrics view (more complex to trigger more work)
-CREATE OR REPLACE VIEW salary_metrics AS
+CREATE OR REPLACE VIEW app.salary_metrics AS
 SELECT
     d.dept_name,
     date_part('year', s.from_date) as year,
@@ -36,10 +29,10 @@ WHERE
 GROUP BY
     d.dept_name,
     date_part('year', s.from_date)
-ORDER BY d.dept_name, date_part('year', s.from_date);
+ORDER BY d.dept_name, date_part('year', s.from_date) ;
 
 -- Create materialized view for department statistics
-CREATE MATERIALIZED VIEW dept_stats AS
+CREATE MATERIALIZED VIEW app.dept_stats AS
 WITH salary_stats AS (
     SELECT
         de.dept_no,
@@ -57,3 +50,6 @@ WITH salary_stats AS (
     GROUP BY de.dept_no, d.dept_name
 )
 SELECT * FROM salary_stats;
+
+-- Add index to materialized view
+CREATE UNIQUE INDEX idx_dept_stats ON app.dept_stats(dept_no);

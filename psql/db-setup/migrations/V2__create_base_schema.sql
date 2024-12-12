@@ -9,12 +9,14 @@ CREATE TABLE app.employees (
     last_name VARCHAR(50) NOT NULL,
     gender CHAR(1) CHECK (gender IN ('M', 'F')),
     hire_date DATE NOT NULL,
-    name_upper TEXT GENERATED ALWAYS AS (UPPER(last_name)) STORED
+    name_upper TEXT GENERATED ALWAYS AS (UPPER(last_name)) STORED,
+    last_modified TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE app.departments (
     dept_no CHAR(4) PRIMARY KEY,
-    dept_name VARCHAR(40) NOT NULL UNIQUE
+    dept_name VARCHAR(40) NOT NULL UNIQUE,
+    manager_budget NUMERIC DEFAULT 100000
 );
 
 CREATE TABLE app.dept_emp (
