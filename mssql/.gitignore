@@ -1,0 +1,5 @@
+.env
+*.log
+node_modules/
+db-setup/logs/*
+!db-setup/logs/.gitkeep
