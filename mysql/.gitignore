@@ -22,8 +22,6 @@ __pycache__/
 # Build and data directories
 mysql_data/
 data/
-dist/
-build/
 
 # Docker
 .docker/
@@ -33,8 +31,3 @@ docker-compose.override.yml
 *.tmp
 *.temp
 .DS_Store
-
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*

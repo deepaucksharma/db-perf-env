@@ -1,8 +1,8 @@
-SET @OLD_SQL_MODE = @@SQL_MODE;
-SET SQL_MODE = 'NO_ENGINE_SUBSTITUTION';
-SET NAMES utf8mb4;
+#!/bin/bash
+set -e
 
--- Create users with basic permissions for demo
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOSQL
+-- Create users with basic permissions
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
 CREATE USER IF NOT EXISTS '${MYSQL_MONITOR_USER}'@'%' IDENTIFIED BY '${MYSQL_MONITOR_PASSWORD}';
 
@@ -28,4 +28,4 @@ SET ENABLED = 'YES'
 WHERE NAME LIKE '%events%';
 
 FLUSH PRIVILEGES;
-SET SQL_MODE = @OLD_SQL_MODE;
+EOSQL

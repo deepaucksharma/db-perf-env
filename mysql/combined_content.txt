@@ -1,36 +1,26 @@
 ﻿###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env ######
 # Database Configuration
-MYSQL_ROOT_PASSWORD=YourSecurePassword123
+MYSQL_ROOT_PASSWORD=secure_root_pw123
 MYSQL_DATABASE=employees
 MYSQL_USER=myuser
 MYSQL_PASSWORD=userpass123
+MYSQL_HOST=mysql-db
+MYSQL_PORT=3306
 
-# New Relic MySQL Monitor User
-MYSQL_MONITOR_USER=newrelic
-MYSQL_MONITOR_PASSWORD=newrelicpass123
+# Monitor User Configuration
+MYSQL_MONITOR_USER=monitor
+MYSQL_MONITOR_PASSWORD=monitorpass123
+
+# Performance Settings
+BATCH_SIZE=1000
+TOTAL_EMPLOYEES=10000
 
 # API Configuration
 API_PORT=3000
 
-# Data Generation
-BATCH_SIZE=1000
-TOTAL_EMPLOYEES=10000
-
-# Performance Testing
-ENABLE_SLOW_QUERIES=true
-SLOW_QUERY_TIME=1
-
 # Load Generator Configuration
 K6_VUS=50
 K6_DURATION=30m
-
-# New Relic Configuration
-NEW_RELIC_LICENSE_KEY=eu01xx0ce15fea0f04db4b9d9ecce89dFFFFNRAL
-NEW_RELIC_APP_NAME=MySQL-Employees-Performance-Demo
-
-# Environment
-NODE_ENV=production
-MYSQL_INTEGRATION_BRANCH=master
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.example ######
 MYSQL_ROOT_PASSWORD=demo123
@@ -89,8 +79,6 @@ __pycache__/
 # Build and data directories
 mysql_data/
 data/
-dist/
-build/
 
 # Docker
 .docker/
@@ -101,47 +89,109 @@ docker-compose.override.yml
 *.temp
 .DS_Store
 
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\AzureDeploy.sh ######
+#!/bin/bash
+set -e
+
+# Load environment variables
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+else
+    echo ".env file not found!"
+    exit 1
+fi
+
+# Detect environment
+if [ -f /.dockerenv ]; then
+    ENVIRONMENT="docker"
+else
+    ENVIRONMENT="vm"
+fi
+
+echo "[INFO] Starting deployment in ${ENVIRONMENT} environment..."
+
+# VM-specific setup
+if [ "$ENVIRONMENT" = "vm" ]; then
+    echo "[INFO] Setting up VM environment..."
+    
+    # Install required packages
+    if ! command -v mysql &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y mysql-server python3 python3-pip
+        sudo systemctl start mysql
+    fi
+
+    # Copy MySQL configs
+    sudo mkdir -p /etc/mysql/conf.d
+    sudo cp db-setup/config/mysql.cnf /etc/mysql/conf.d/custom_mysql.cnf
+    sudo cp db-setup/config/performance-schema.cnf /etc/mysql/conf.d/performance_schema.cnf
+    sudo systemctl restart mysql
+fi
+
+# Wait for MySQL
+echo "[INFO] Waiting for MySQL..."
+max_attempts=30
+attempt=1
+while ! mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+    if [ $attempt -eq $max_attempts ]; then
+        echo "Failed to connect to MySQL after $max_attempts attempts"
+        exit 1
+    fi
+    echo "Attempt $attempt of $max_attempts: MySQL not ready, waiting..."
+    sleep 2
+    ((attempt++))
+done
+
+# Initialize database
+echo "[INFO] Running migrations..."
+for migration in db-setup/migrations/V*.sql; do
+    echo "Running migration: $migration"
+    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < "$migration"
+done
+
+# Setup Python environment and run data scripts
+echo "[INFO] Setting up Python environment..."
+pip3 install --no-cache-dir -r db-setup/requirements.txt
+
+echo "[INFO] Running data setup scripts..."
+cd db-setup/scripts
+python3 create_tables.py
+python3 departments_data.py
+python3 load_data.py
+cd ../..
+
+# If in Docker environment, handle additional services
+if [ "$ENVIRONMENT" = "docker" ]; then
+    echo "[INFO] Starting Docker services..."
+    docker-compose up -d api load-generator
+fi
+
+echo "[INFO] Deployment completed successfully!"
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\combined_content.txt ######
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env ######
 # Database Configuration
-MYSQL_ROOT_PASSWORD=YourSecurePassword123
+MYSQL_ROOT_PASSWORD=secure_root_pw123
 MYSQL_DATABASE=employees
 MYSQL_USER=myuser
 MYSQL_PASSWORD=userpass123
+MYSQL_HOST=mysql-db
+MYSQL_PORT=3306
 
-# New Relic MySQL Monitor User
-MYSQL_MONITOR_USER=newrelic
-MYSQL_MONITOR_PASSWORD=newrelicpass123
+# Monitor User Configuration
+MYSQL_MONITOR_USER=monitor
+MYSQL_MONITOR_PASSWORD=monitorpass123
+
+# Performance Settings
+BATCH_SIZE=1000
+TOTAL_EMPLOYEES=10000
 
 # API Configuration
 API_PORT=3000
 
-# Data Generation
-BATCH_SIZE=1000
-TOTAL_EMPLOYEES=10000
-
-# Performance Testing
-ENABLE_SLOW_QUERIES=true
-SLOW_QUERY_TIME=1
-
 # Load Generator Configuration
 K6_VUS=50
 K6_DURATION=30m
-
-# New Relic Configuration
-NEW_RELIC_LICENSE_KEY=eu01xx0ce15fea0f04db4b9d9ecce89dFFFFNRAL
-NEW_RELIC_APP_NAME=MySQL-Employees-Performance-Demo
-
-# Environment
-NODE_ENV=production
-MYSQL_INTEGRATION_BRANCH=master
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.example ######
 MYSQL_ROOT_PASSWORD=demo123
@@ -200,8 +250,6 @@ __pycache__/
 # Build and data directories
 mysql_data/
 data/
-dist/
-build/
 
 # Docker
 .docker/
@@ -212,12 +260,84 @@ docker-compose.override.yml
 *.temp
 .DS_Store
 
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\AzureDeploy.sh ######
+#!/bin/bash
+set -e
+
+# Load environment variables
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+else
+    echo ".env file not found!"
+    exit 1
+fi
+
+# Detect environment
+if [ -f /.dockerenv ]; then
+    ENVIRONMENT="docker"
+else
+    ENVIRONMENT="vm"
+fi
+
+echo "[INFO] Starting deployment in ${ENVIRONMENT} environment..."
+
+# VM-specific setup
+if [ "$ENVIRONMENT" = "vm" ]; then
+    echo "[INFO] Setting up VM environment..."
+    
+    # Install required packages
+    if ! command -v mysql &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y mysql-server python3 python3-pip
+        sudo systemctl start mysql
+    fi
+
+    # Copy MySQL configs
+    sudo mkdir -p /etc/mysql/conf.d
+    sudo cp db-setup/config/mysql.cnf /etc/mysql/conf.d/custom_mysql.cnf
+    sudo cp db-setup/config/performance-schema.cnf /etc/mysql/conf.d/performance_schema.cnf
+    sudo systemctl restart mysql
+fi
+
+# Wait for MySQL
+echo "[INFO] Waiting for MySQL..."
+max_attempts=30
+attempt=1
+while ! mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+    if [ $attempt -eq $max_attempts ]; then
+        echo "Failed to connect to MySQL after $max_attempts attempts"
+        exit 1
+    fi
+    echo "Attempt $attempt of $max_attempts: MySQL not ready, waiting..."
+    sleep 2
+    ((attempt++))
+done
+
+# Initialize database
+echo "[INFO] Running migrations..."
+for migration in db-setup/migrations/V*.sql; do
+    echo "Running migration: $migration"
+    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < "$migration"
+done
+
+# Setup Python environment and run data scripts
+echo "[INFO] Setting up Python environment..."
+pip3 install --no-cache-dir -r db-setup/requirements.txt
+
+echo "[INFO] Running data setup scripts..."
+cd db-setup/scripts
+python3 create_tables.py
+python3 departments_data.py
+python3 load_data.py
+cd ../..
+
+# If in Docker environment, handle additional services
+if [ "$ENVIRONMENT" = "docker" ]; then
+    echo "[INFO] Starting Docker services..."
+    docker-compose up -d api load-generator
+fi
+
+echo "[INFO] Deployment completed successfully!"
 
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\docker-compose.yml ######
@@ -230,15 +350,10 @@ services:
       dockerfile: Dockerfile
     container_name: mysql-db
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_MONITOR_USER=${MYSQL_MONITOR_USER}
-      - MYSQL_MONITOR_PASSWORD=${MYSQL_MONITOR_PASSWORD}
-      - BATCH_SIZE=${BATCH_SIZE}
-      - TOTAL_EMPLOYEES=${TOTAL_EMPLOYEES}
-      - TZ=UTC
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -247,16 +362,10 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
       interval: 10s
       timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
+      retries: 3
 
   api:
     build:
@@ -264,13 +373,11 @@ services:
       dockerfile: Dockerfile
     container_name: employees-api
     environment:
-      - MYSQL_HOST=mysql-db
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - API_PORT=${API_PORT}
-      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-      - NEW_RELIC_APP_NAME=${NEW_RELIC_APP_NAME}
+      MYSQL_HOST: mysql-db
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      API_PORT: ${API_PORT}
     ports:
       - "${API_PORT}:3000"
     depends_on:
@@ -284,9 +391,9 @@ services:
       context: ./services/load-generator
       dockerfile: Dockerfile
     environment:
-      - API_URL=http://api:3000
-      - K6_VUS=${K6_VUS}
-      - K6_DURATION=${K6_DURATION}
+      API_URL: http://api:3000
+      K6_VUS: ${K6_VUS}
+      K6_DURATION: ${K6_DURATION}
     depends_on:
       - api
     networks:
@@ -299,6 +406,42 @@ networks:
 volumes:
   mysql_data:
   mysql_logs:
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\verify_setup.sh ######
+#!/bin/bash
+set -e
+
+echo "Verifying MySQL performance testing environment setup..."
+
+# Check required files exist
+required_files=(
+    ".env"
+    "docker-compose.yml"
+    "db-setup/Dockerfile"
+    "db-setup/migrations/01_init_schema.sql"
+    "db-setup/migrations/02_init_users.sh"
+    "db-setup/scripts/load_data.py"
+    "services/api/server.js"
+    "services/load-generator/scripts/load-test.js"
+)
+
+for file in "${required_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "Error: Required file $file not found!"
+        exit 1
+    fi
+done
+
+echo "File structure verified successfully."
+
+# Verify Docker and dependencies
+command -v docker >/dev/null 2>&1 || { echo "Docker is required but not installed."; exit 1; }
+command -v docker-compose >/dev/null 2>&1 || { echo "Docker Compose is required but not installed."; exit 1; }
+
+echo "Dependencies verified successfully."
+
+echo "Setup verification complete. You can now run: docker-compose up -d"
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\config\mysql.cnf ######
 # MySQL Configuration
 [mysqld]
@@ -314,6 +457,9 @@ performance_schema = ON
 performance_schema_instrument = 'statement/sql/*=ON'
 performance_schema_consumer_events_statements_history = ON
 performance_schema_consumer_events_statements_history_long = ON
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\combined_content.txt ######
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\combined_content.txt ######
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\Dockerfile ######
 FROM mysql:8.0
@@ -333,12 +479,9 @@ COPY config/ /etc/mysql/conf.d/
 RUN chown -R mysql:mysql /etc/mysql/conf.d/ && \
     chmod 0444 /etc/mysql/conf.d/*.cnf
 
-# Copy SQL initialization files
-COPY migrations/V1__init_monitoring.sql \
-     migrations/V2__create_base_schema.sql \
-     migrations/V3__add_indexes.sql \
-     migrations/V4__create_views.sql \
-     /docker-entrypoint-initdb.d/
+# Copy initialization files
+COPY migrations/ /docker-entrypoint-initdb.d/
+RUN chmod -R 0755 /docker-entrypoint-initdb.d/
 
 # Copy Python scripts and requirements
 COPY scripts/ /scripts/
@@ -347,17 +490,6 @@ COPY requirements.txt /scripts/
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r /scripts/requirements.txt && \
     rm -rf /root/.cache/pip
-
-# Create data initialization script
-RUN echo '#!/bin/bash' > /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'set -e' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'echo "Waiting for MySQL to be ready..."' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'sleep 10' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'echo "Starting data initialization..."' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'python3 /scripts/create_tables.py' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'python3 /scripts/departments_data.py' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    echo 'python3 /scripts/load_data.py' >> /docker-entrypoint-initdb.d/zz_init_data.sh && \
-    chmod +x /docker-entrypoint-initdb.d/zz_init_data.sh
 
 # Create healthcheck script
 RUN echo '#!/bin/bash' > /healthcheck.sh && \
@@ -370,16 +502,14 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD ["/healthcheck.sh"]
 
 CMD ["mysqld"]
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\requirements.txt ######
-mysql-connector-python==8.0.33
-Faker==15.3.4
-newrelic==8.8.0
-python-dotenv==1.0.0
+mysql-connector-python==8.0.28
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\config\mysql.cnf ######
 [mysqld]
 # InnoDB Settings
-innodb_buffer_pool_size = 256M
+innodb_buffer_pool_size = 1G
 innodb_buffer_pool_instances = 2
 innodb_file_per_table = 1
 innodb_flush_log_at_trx_commit = 2
@@ -401,25 +531,18 @@ thread_cache_size = 50
 wait_timeout = 28800
 interactive_timeout = 28800
 
-# Performance Schema
-performance_schema = ON
-performance_schema_max_digest_length = 4096
-performance_schema_max_sql_text_length = 4096
-
 # Slow Query Logging
 slow_query_log = 1
 slow_query_log_file = /var/log/mysql/slow.log
-long_query_time = 0.5
+long_query_time = ${SLOW_QUERY_TIME}
 log_queries_not_using_indexes = 1
-log_slow_admin_statements = 1
-min_examined_row_limit = 100
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\config\performance-schema.cnf ######
 [mysqld]
 # Enable Performance Schema
 performance_schema = ON
 performance_schema_max_digest_length = 4096
 performance_schema_max_sql_text_length = 4096
-performance_schema_max_memory_classes = 500
 
 # Instrument Configuration
 performance_schema_instrument = 'memory/%=ON'
@@ -427,21 +550,102 @@ performance_schema_instrument = 'statement/%=ON'
 performance_schema_instrument = 'wait/lock/metadata/sql/mdl=ON'
 performance_schema_instrument = 'wait/lock/table/sql/handler=ON'
 performance_schema_instrument = 'table/%=ON'
-performance_schema_instrument = 'wait/io/table/sql/handler=ON'
 
 # Consumer Configuration
 performance_schema_consumer_events_statements_current = ON
 performance_schema_consumer_events_statements_history = ON
 performance_schema_consumer_events_statements_history_long = ON
 performance_schema_consumer_statements_digest = ON
-performance_schema_consumer_thread_instrumentation = ON
-performance_schema_consumer_global_instrumentation = ON
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\V1__init_monitoring.sql ######
-SET @OLD_SQL_MODE = @@SQL_MODE;
-SET SQL_MODE = 'NO_ENGINE_SUBSTITUTION';
-SET NAMES utf8mb4;
 
--- Create users with basic permissions for demo
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\01_init_schema.sql ######
+-- Initialize database and tables
+CREATE DATABASE IF NOT EXISTS employees;
+USE employees;
+
+-- Create departments table
+CREATE TABLE IF NOT EXISTS departments (
+    dept_no CHAR(4) PRIMARY KEY,
+    dept_name VARCHAR(40) NOT NULL,
+    manager_budget DECIMAL(15,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_dept_name (dept_name)
+);
+
+-- Create employees table
+CREATE TABLE IF NOT EXISTS employees (
+    emp_no INT PRIMARY KEY,
+    birth_date DATE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    gender ENUM('M','F') NOT NULL,
+    hire_date DATE NOT NULL,
+    birth_month INT GENERATED ALWAYS AS (MONTH(birth_date)) STORED,
+    hire_year INT GENERATED ALWAYS AS (YEAR(hire_date)) STORED,
+    salary_tier INT GENERATED ALWAYS AS (
+        CASE 
+            WHEN emp_no % 4 = 0 THEN 1
+            WHEN emp_no % 4 = 1 THEN 2
+            WHEN emp_no % 4 = 2 THEN 3
+            ELSE 4
+        END
+    ) STORED,
+    last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create salaries table
+CREATE TABLE IF NOT EXISTS salaries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_no INT NOT NULL,
+    salary INT NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE
+);
+
+-- Create dept_emp table
+CREATE TABLE IF NOT EXISTS dept_emp (
+    emp_no INT NOT NULL,
+    dept_no CHAR(4) NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    PRIMARY KEY (emp_no, dept_no),
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE,
+    FOREIGN KEY (dept_no) REFERENCES departments (dept_no) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_employees_gender ON employees(gender);
+CREATE INDEX idx_employees_birth_month ON employees(birth_month);
+CREATE INDEX idx_employees_hire_year ON employees(hire_year);
+CREATE INDEX idx_emp_name1 ON employees(last_name, first_name);
+CREATE INDEX idx_salary_tier ON employees(salary_tier);
+
+CREATE INDEX idx_salaries_amount ON salaries(salary);
+CREATE INDEX idx_salaries_dates ON salaries(from_date, to_date);
+
+CREATE INDEX idx_dept_emp_dates ON dept_emp(from_date, to_date);
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\02_init_users.sh ######
+#!/bin/bash
+set -e
+
+# Wait for MySQL to be ready
+max_attempts=30
+counter=0
+
+until mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+    counter=$((counter + 1))
+    if [ $counter -eq $max_attempts ]; then
+        echo "Failed to connect to MySQL after $max_attempts attempts"
+        exit 1
+    fi
+    echo "Attempt $counter of $max_attempts: MySQL not ready, waiting..."
+    sleep 2
+done
+
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOSQL
+-- Create users with basic permissions
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
 CREATE USER IF NOT EXISTS '${MYSQL_MONITOR_USER}'@'%' IDENTIFIED BY '${MYSQL_MONITOR_PASSWORD}';
 
@@ -467,119 +671,8 @@ SET ENABLED = 'YES'
 WHERE NAME LIKE '%events%';
 
 FLUSH PRIVILEGES;
-SET SQL_MODE = @OLD_SQL_MODE;
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\V2__create_base_schema.sql ######
-CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
-USE ${MYSQL_DATABASE};
+EOSQL
 
-CREATE TABLE IF NOT EXISTS employees (
-    emp_no INT PRIMARY KEY,
-    birth_date DATE NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    gender ENUM('M','F') NOT NULL,
-    hire_date DATE NOT NULL,
-    birth_month INT GENERATED ALWAYS AS (MONTH(birth_date)) STORED,
-    hire_year INT GENERATED ALWAYS AS (YEAR(hire_date)) STORED,
-    salary_tier INT GENERATED ALWAYS AS (
-        CASE 
-            WHEN emp_no % 4 = 0 THEN 1
-            WHEN emp_no % 4 = 1 THEN 2
-            WHEN emp_no % 4 = 2 THEN 3
-            ELSE 4
-        END
-    ) STORED,
-    last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS departments (
-    dept_no CHAR(4) PRIMARY KEY,
-    dept_name VARCHAR(40) NOT NULL UNIQUE,
-    manager_budget DECIMAL(15,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS salaries (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    emp_no INT NOT NULL,
-    salary INT NOT NULL,
-    from_date DATE NOT NULL,
-    to_date DATE NOT NULL,
-    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS dept_emp (
-    emp_no INT NOT NULL,
-    dept_no CHAR(4) NOT NULL,
-    from_date DATE NOT NULL,
-    to_date DATE NOT NULL,
-    PRIMARY KEY (emp_no, dept_no),
-    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE,
-    FOREIGN KEY (dept_no) REFERENCES departments (dept_no) ON DELETE CASCADE
-) ENGINE=InnoDB;
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\V3__add_indexes.sql ######
-USE ${MYSQL_DATABASE};
-
--- Employee indexes
-CREATE INDEX idx_employees_gender ON employees(gender);
-CREATE INDEX idx_employees_birth_month ON employees(birth_month);
-CREATE INDEX idx_employees_hire_year ON employees(hire_year);
-CREATE INDEX idx_emp_name1 ON employees(last_name, first_name);
-CREATE INDEX idx_emp_name2 ON employees(first_name, last_name);
-CREATE INDEX idx_emp_name3 ON employees(last_name, birth_date, first_name);
-CREATE INDEX idx_salary_tier ON employees(salary_tier);
-
--- Salary indexes
-CREATE INDEX idx_salaries_amount ON salaries(salary);
-CREATE INDEX idx_salaries_dates ON salaries(from_date, to_date);
-CREATE INDEX idx_salaries_emp_date ON salaries(emp_no, from_date);
-
--- Department indexes
-CREATE INDEX idx_dept_emp_1 ON dept_emp(emp_no, dept_no, from_date);
-CREATE INDEX idx_dept_emp_2 ON dept_emp(emp_no, from_date, dept_no);
-CREATE INDEX idx_dept_emp_3 ON dept_emp(dept_no, emp_no, from_date);
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\V4__create_views.sql ######
-USE ${MYSQL_DATABASE};
-
--- Employee statistics view
-CREATE OR REPLACE VIEW employee_stats AS
-SELECT 
-    YEAR(birth_date) as birth_year,
-    gender,
-    COUNT(*) as total_count,
-    AVG(MONTH(birth_date)) as avg_birth_month,
-    SUM(CASE WHEN gender = 'M' THEN 1 ELSE 0 END) as male_count
-FROM employees
-GROUP BY YEAR(birth_date), gender;
-
--- Employee performance view with hierarchical data
-CREATE OR REPLACE VIEW employee_performance AS
-WITH RECURSIVE date_sequence AS (
-    SELECT CURDATE() - INTERVAL 12 MONTH as date
-    UNION ALL
-    SELECT date + INTERVAL 1 MONTH 
-    FROM date_sequence 
-    WHERE date < CURDATE()
-)
-SELECT 
-    d.dept_name,
-    ds.date as month_date,
-    COUNT(DISTINCT e.emp_no) as employee_count,
-    AVG(s.salary) as avg_salary,
-    SUM(s.salary) as total_salary,
-    COUNT(DISTINCT de.dept_no) as dept_count
-FROM 
-    date_sequence ds
-    CROSS JOIN departments d
-    LEFT JOIN dept_emp de ON de.dept_no = d.dept_no
-    LEFT JOIN employees e ON de.emp_no = e.emp_no
-    LEFT JOIN salaries s ON e.emp_no = s.emp_no
-        AND s.from_date <= ds.date 
-        AND s.to_date >= ds.date
-GROUP BY 
-    d.dept_name,
-    ds.date;
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\create_tables.py ######
 import mysql.connector
 import os
@@ -647,43 +740,47 @@ def create_tables():
 if __name__ == "__main__":
     create_tables()
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\departments_data.py ######
+#!/usr/bin/env python3
 import mysql.connector
 import os
 import logging
+from mysql.connector import Error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def insert_departments():
-    db_config = {
+DEPARTMENTS = [
+    ('d001', 'Marketing'),
+    ('d002', 'Finance'),
+    ('d003', 'Human Resources'),
+    ('d004', 'Research and Development'),
+    ('d005', 'Quality Assurance'),
+    ('d006', 'Sales'),
+    ('d007', 'IT'),
+    ('d008', 'Operations'),
+    ('d009', 'Customer Support'),
+    ('d010', 'Product Management')
+]
+
+def get_db_config():
+    return {
         'host': os.getenv('MYSQL_HOST', 'localhost'),
-        'user': os.getenv('MYSQL_USER', 'root'),
-        'password': os.getenv('MYSQL_ROOT_PASSWORD', 'demo123'),
+        'user': os.getenv('MYSQL_USER', 'myuser'),
+        'password': os.getenv('MYSQL_PASSWORD', 'userpass123'),
         'database': os.getenv('MYSQL_DATABASE', 'employees')
     }
-    
-    departments = [
-        ('d001', 'Marketing'),
-        ('d002', 'Finance'),
-        ('d003', 'Human Resources'),
-        ('d004', 'Research and Development'),
-        ('d005', 'Quality Assurance'),
-        ('d006', 'Sales'),
-        ('d007', 'IT'),
-        ('d008', 'Operations'),
-        ('d009', 'Customer Support'),
-        ('d010', 'Product Management')
-    ]
-    
+
+def main():
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = mysql.connector.connect(**get_db_config())
         cursor = conn.cursor()
         
+        # Insert departments
         cursor.executemany("""
             INSERT INTO departments (dept_no, dept_name)
             VALUES (%s, %s)
             ON DUPLICATE KEY UPDATE dept_name = VALUES(dept_name)
-        """, departments)
+        """, DEPARTMENTS)
         
         # Initialize manager_budget randomly
         cursor.execute("""
@@ -693,19 +790,22 @@ def insert_departments():
         """)
         
         conn.commit()
-        logger.info(f"Inserted {len(departments)} departments successfully")
+        logger.info(f"Inserted {len(DEPARTMENTS)} departments successfully")
         
-    except Exception as e:
-        logger.error(f"Error inserting departments: {str(e)}")
-        conn.rollback()
+    except Error as e:
+        logger.error(f"Error: {e}")
+        if 'conn' in locals():
+            conn.rollback()
         raise
     finally:
-        if 'conn' in locals():
+        if 'cursor' in locals():
             cursor.close()
+        if 'conn' in locals():
             conn.close()
 
 if __name__ == "__main__":
-    insert_departments()
+    main()
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\healthcheck.sh ######
 #!/bin/bash
 set -eo pipefail
@@ -720,24 +820,69 @@ fi
 mysql -u"$MYSQL_USER" -p"$MYSQL_PASS" -e "SELECT 1;" >/dev/null 2>&1
 exit $?
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\init-db.sh ######
+#!/bin/bash
+set -e
+
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" << EOSQL
+-- Create users
+CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+CREATE USER IF NOT EXISTS '$MYSQL_MONITOR_USER'@'%' IDENTIFIED BY '$MYSQL_MONITOR_PASSWORD';
+
+-- Grant permissions
+GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON performance_schema.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON sys.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON information_schema.* TO '$MYSQL_MONITOR_USER'@'%';
+
+-- Enable monitoring
+UPDATE performance_schema.setup_instruments 
+SET ENABLED = 'YES', TIMED = 'YES'
+WHERE NAME LIKE '%statement/%' 
+   OR NAME LIKE '%stage/%'
+   OR NAME LIKE '%wait/%'
+   OR NAME LIKE '%memory/%';
+
+UPDATE performance_schema.setup_consumers
+SET ENABLED = 'YES'
+WHERE NAME LIKE '%events%';
+
+FLUSH PRIVILEGES;
+EOSQL
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\load_data.py ######
+#!/usr/bin/env python3
 import mysql.connector
 import random
 from datetime import date, timedelta
 from faker import Faker
 import os
 import logging
-from concurrent.futures import ThreadPoolExecutor
 import time
+from mysql.connector import Error
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+def get_db_config():
+    return {
+        'host': os.getenv('MYSQL_HOST', 'localhost'),
+        'user': os.getenv('MYSQL_USER', 'myuser'),
+        'password': os.getenv('MYSQL_PASSWORD', 'userpass123'),
+        'database': os.getenv('MYSQL_DATABASE', 'employees'),
+        'raise_on_warnings': True
+    }
 
 def generate_employee_batch(start_emp_no, batch_size, fake):
     employees = []
     salaries = []
     dept_assignments = []
-    departments = ['d001', 'd002', 'd003', 'd004', 'd005', 'd006', 'd007', 'd008', 'd009', 'd010']
+    departments = ['d001', 'd002', 'd003', 'd004', 'd005', 
+                  'd006', 'd007', 'd008', 'd009', 'd010']
     
     for i in range(batch_size):
         emp_no = start_emp_no + i
@@ -753,26 +898,23 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
             hire_date
         ))
         
-        # Generate 2-4 salary records per employee
+        # Generate salary history
         current_date = hire_date
         for _ in range(random.randint(2, 4)):
-            base_salary = random.randint(30000, 150000)
-            # Add some outliers for interesting data
-            if random.random() < 0.05:  # 5% chance
-                base_salary *= random.uniform(1.5, 2.5)
+            salary = random.randint(30000, 150000)
+            if random.random() < 0.05:  # 5% outliers
+                salary = int(salary * random.uniform(1.5, 2.5))
             
-            salaries.append((
-                emp_no,
-                int(base_salary),
-                current_date,
-                date(9999, 1, 1) if _ == 0 else current_date + timedelta(days=random.randint(365, 1095))
-            ))
-            current_date += timedelta(days=random.randint(365, 1095))
+            to_date = date(9999, 1, 1) if _ == 0 else \
+                     current_date + timedelta(days=random.randint(365, 1095))
+            
+            salaries.append((emp_no, salary, current_date, to_date))
+            current_date = to_date
         
-        # Assign to 1-2 departments
-        num_departments = random.randint(1, 2)
-        selected_departments = random.sample(departments, num_departments)
-        for dept_no in selected_departments:
+        # Department assignments
+        num_depts = random.randint(1, 2)
+        selected_depts = random.sample(departments, num_depts)
+        for dept_no in selected_depts:
             dept_assignments.append((
                 emp_no,
                 dept_no,
@@ -786,31 +928,22 @@ def main():
     batch_size = int(os.getenv('BATCH_SIZE', 1000))
     total_employees = int(os.getenv('TOTAL_EMPLOYEES', 10000))
     
-    db_config = {
-        'host': os.getenv('MYSQL_HOST', 'localhost'),
-        'user': os.getenv('MYSQL_USER', 'root'),
-        'password': os.getenv('MYSQL_ROOT_PASSWORD', 'demo123'),
-        'database': os.getenv('MYSQL_DATABASE', 'employees')
-    }
-    
-    fake = Faker()
-    
-    logger.info(f"Starting data load: {total_employees} employees in batches of {batch_size}")
-    
     try:
-        conn = mysql.connector.connect(**db_config)
+        conn = mysql.connector.connect(**get_db_config())
         cursor = conn.cursor()
+        
+        fake = Faker()
+        logger.info(f"Starting data load: {total_employees} employees")
         
         for batch_start in range(0, total_employees, batch_size):
             start_time = time.time()
             
             employees, salaries, dept_assignments = generate_employee_batch(
-                batch_start + 1000000,  # Start emp_no at 1000000
+                batch_start + 1000000,  # Starting emp_no
                 min(batch_size, total_employees - batch_start),
                 fake
             )
             
-            # Insert batch data
             cursor.executemany("""
                 INSERT INTO employees 
                 (emp_no, birth_date, first_name, last_name, gender, hire_date)
@@ -833,17 +966,616 @@ def main():
             
             elapsed = time.time() - start_time
             logger.info(
-                f"Batch {batch_start//batch_size + 1}/{(total_employees+batch_size-1)//batch_size} "
-                f"completed in {elapsed:.2f}s"
+                f"Batch {batch_start//batch_size + 1} completed in {elapsed:.2f}s"
             )
             
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        if 'conn' in locals():
+            conn.rollback()
+        raise
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
+
+if __name__ == "__main__":
+    main()
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\run_load_data.sh ######
+#!/bin/bash
+set -e
+
+echo "Waiting for MySQL to be ready..."
+while ! mysqladmin ping -h"localhost" --silent; do
+    sleep 2
+done
+
+echo "Starting data load process..."
+python3 /docker-entrypoint-initdb.d/load_data.py
+
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\Dockerfile ######
+FROM mysql:8.0
+
+COPY my.cnf /etc/mysql/conf.d/
+COPY init.sql /docker-entrypoint-initdb.d/
+
+RUN chmod 0644 /etc/mysql/conf.d/my.cnf && \
+    chown mysql:mysql /etc/mysql/conf.d/my.cnf
+
+CMD ["mysqld"]
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\init.sql ######
+CREATE DATABASE IF NOT EXISTS employees;
+USE employees;
+
+CREATE TABLE departments (
+    dept_no CHAR(4) PRIMARY KEY,
+    dept_name VARCHAR(40) NOT NULL,
+    manager_budget DECIMAL(15,2),
+    UNIQUE KEY uk_dept_name (dept_name)
+);
+
+CREATE TABLE employees (
+    emp_no INT PRIMARY KEY,
+    birth_date DATE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    gender ENUM('M','F') NOT NULL,
+    hire_date DATE NOT NULL
+);
+
+CREATE TABLE salaries (
+    emp_no INT NOT NULL,
+    salary INT NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no)
+);
+
+CREATE TABLE dept_emp (
+    emp_no INT NOT NULL,
+    dept_no CHAR(4) NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    PRIMARY KEY (emp_no, dept_no),
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no),
+    FOREIGN KEY (dept_no) REFERENCES departments (dept_no)
+);
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\my.cnf ######
+[mysqld]
+default_authentication_plugin=mysql_native_password
+explicit_defaults_for_timestamp=1
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\requirements.txt ######
+mysql-connector-python==8.0.28
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\config\mysql.cnf ######
+[mysqld]
+# InnoDB Settings
+innodb_buffer_pool_size = 1G
+innodb_buffer_pool_instances = 2
+innodb_file_per_table = 1
+innodb_flush_log_at_trx_commit = 2
+innodb_log_buffer_size = 16M
+innodb_io_capacity = 1000
+innodb_flush_method = O_DIRECT
+innodb_thread_concurrency = 0
+
+# Buffer Settings
+sort_buffer_size = 1M
+read_buffer_size = 1M
+join_buffer_size = 1M
+tmp_table_size = 32M
+max_heap_table_size = 32M
+
+# Connection Settings
+max_connections = 100
+thread_cache_size = 50
+wait_timeout = 28800
+interactive_timeout = 28800
+
+# Slow Query Logging
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 1
+log_queries_not_using_indexes = 1
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\config\performance-schema.cnf ######
+[mysqld]
+# Enable Performance Schema
+performance_schema = ON
+performance_schema_max_digest_length = 4096
+performance_schema_max_sql_text_length = 4096
+
+# Instrument Configuration
+performance_schema_instrument = 'memory/%=ON'
+performance_schema_instrument = 'statement/%=ON'
+performance_schema_instrument = 'wait/lock/metadata/sql/mdl=ON'
+performance_schema_instrument = 'wait/lock/table/sql/handler=ON'
+performance_schema_instrument = 'table/%=ON'
+
+# Consumer Configuration
+performance_schema_consumer_events_statements_current = ON
+performance_schema_consumer_events_statements_history = ON
+performance_schema_consumer_events_statements_history_long = ON
+performance_schema_consumer_statements_digest = ON
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\01_init_schema.sql ######
+-- Initialize database
+CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
+USE ${MYSQL_DATABASE};
+
+-- Create departments table
+CREATE TABLE IF NOT EXISTS departments (
+    dept_no CHAR(4) PRIMARY KEY,
+    dept_name VARCHAR(40) NOT NULL,
+    manager_budget DECIMAL(15,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_dept_name (dept_name)
+);
+
+-- Create employees table
+CREATE TABLE IF NOT EXISTS employees (
+    emp_no INT PRIMARY KEY,
+    birth_date DATE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    gender ENUM('M','F') NOT NULL,
+    hire_date DATE NOT NULL,
+    birth_month INT GENERATED ALWAYS AS (MONTH(birth_date)) STORED,
+    hire_year INT GENERATED ALWAYS AS (YEAR(hire_date)) STORED,
+    salary_tier INT GENERATED ALWAYS AS (
+        CASE 
+            WHEN emp_no % 4 = 0 THEN 1
+            WHEN emp_no % 4 = 1 THEN 2
+            WHEN emp_no % 4 = 2 THEN 3
+            ELSE 4
+        END
+    ) STORED,
+    last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create salaries table
+CREATE TABLE IF NOT EXISTS salaries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_no INT NOT NULL,
+    salary INT NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE
+);
+
+-- Create dept_emp table
+CREATE TABLE IF NOT EXISTS dept_emp (
+    emp_no INT NOT NULL,
+    dept_no CHAR(4) NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    PRIMARY KEY (emp_no, dept_no),
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE,
+    FOREIGN KEY (dept_no) REFERENCES departments (dept_no) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_employees_gender ON employees(gender);
+CREATE INDEX idx_employees_birth_month ON employees(birth_month);
+CREATE INDEX idx_employees_hire_year ON employees(hire_year);
+CREATE INDEX idx_emp_name1 ON employees(last_name, first_name);
+CREATE INDEX idx_salary_tier ON employees(salary_tier);
+CREATE INDEX idx_salaries_amount ON salaries(salary);
+CREATE INDEX idx_salaries_dates ON salaries(from_date, to_date);
+CREATE INDEX idx_dept_emp_dates ON dept_emp(from_date, to_date);
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\02_init_users.sh ######
+#!/bin/bash
+set -e
+
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOSQL
+-- Create users with basic permissions
+CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+CREATE USER IF NOT EXISTS '${MYSQL_MONITOR_USER}'@'%' IDENTIFIED BY '${MYSQL_MONITOR_PASSWORD}';
+
+-- Grant permissions to application user
+GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
+
+-- Grant monitoring permissions
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON performance_schema.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON sys.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON information_schema.* TO '${MYSQL_MONITOR_USER}'@'%';
+
+-- Enable performance monitoring
+UPDATE performance_schema.setup_instruments 
+SET ENABLED = 'YES', TIMED = 'YES'
+WHERE NAME LIKE '%statement/%' 
+   OR NAME LIKE '%stage/%'
+   OR NAME LIKE '%wait/%'
+   OR NAME LIKE '%memory/%';
+
+UPDATE performance_schema.setup_consumers
+SET ENABLED = 'YES'
+WHERE NAME LIKE '%events%';
+
+FLUSH PRIVILEGES;
+EOSQL
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\03_init_monitoring.sql ######
+-- Create database and users
+CREATE DATABASE IF NOT EXISTS employees;
+USE employees;
+
+-- Create users and grant permissions using prepared statements
+DELIMITER //
+CREATE PROCEDURE setup_users()
+BEGIN
+    SET @create_user = CONCAT('CREATE USER IF NOT EXISTS ''', @app_user, '''@''%'' IDENTIFIED BY ''', @app_pass, '''');
+    SET @grant_privs = CONCAT('GRANT ALL PRIVILEGES ON employees.* TO ''', @app_user, '''@''%''');
+    
+    PREPARE stmt FROM @create_user;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+    
+    PREPARE stmt FROM @grant_privs;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END //
+DELIMITER ;
+
+-- Call the procedure with parameters
+SET @app_user = 'myuser';
+SET @app_pass = 'userpass123';
+CALL setup_users();
+
+DROP PROCEDURE IF EXISTS setup_users;
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\V1__init_monitoring.sh ######
+#!/bin/bash
+set -e
+
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+-- Enable performance monitoring
+UPDATE performance_schema.setup_instruments 
+SET ENABLED = 'YES', TIMED = 'YES'
+WHERE NAME LIKE '%statement/%' 
+   OR NAME LIKE '%stage/%'
+   OR NAME LIKE '%wait/%'
+   OR NAME LIKE '%memory/%';
+
+UPDATE performance_schema.setup_consumers
+SET ENABLED = 'YES'
+WHERE NAME LIKE '%events%';
+
+-- Create and configure users
+CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+CREATE USER IF NOT EXISTS '$MYSQL_MONITOR_USER'@'%' IDENTIFIED BY '$MYSQL_MONITOR_PASSWORD';
+
+GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON performance_schema.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON sys.* TO '$MYSQL_MONITOR_USER'@'%';
+
+FLUSH PRIVILEGES;
+EOF
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\create_tables.py ######
+import mysql.connector
+import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def create_tables():
+    db_config = {
+        'host': os.getenv('MYSQL_HOST', 'localhost'),
+        'user': os.getenv('MYSQL_USER', 'root'),
+        'password': os.getenv('MYSQL_ROOT_PASSWORD', 'demo123'),
+        'database': os.getenv('MYSQL_DATABASE', 'employees')
+    }
+    
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        
+        # Create departments table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS departments (
+                dept_no CHAR(4) PRIMARY KEY,
+                dept_name VARCHAR(40) NOT NULL,
+                manager_budget DECIMAL(15,2),
+                UNIQUE KEY uk_dept_name (dept_name)
+            )
+        """)
+        
+        # Create employees table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS employees (
+                emp_no INT PRIMARY KEY,
+                birth_date DATE NOT NULL,
+                first_name VARCHAR(50) NOT NULL,
+                last_name VARCHAR(50) NOT NULL,
+                gender ENUM('M','F') NOT NULL,
+                hire_date DATE NOT NULL,
+                birth_month INT GENERATED ALWAYS AS (MONTH(birth_date)) STORED,
+                hire_year INT GENERATED ALWAYS AS (YEAR(hire_date)) STORED,
+                salary_tier INT GENERATED ALWAYS AS (
+                    CASE 
+                        WHEN emp_no % 4 = 0 THEN 1
+                        WHEN emp_no % 4 = 1 THEN 2
+                        WHEN emp_no % 4 = 2 THEN 3
+                        ELSE 4
+                    END
+                ) STORED
+            )
+        """)
+        
+        conn.commit()
+        logger.info("Tables created successfully")
+        
     except Exception as e:
-        logger.error(f"Error loading data: {str(e)}")
+        logger.error(f"Error creating tables: {str(e)}")
         conn.rollback()
         raise
     finally:
         if 'conn' in locals():
             cursor.close()
+            conn.close()
+
+if __name__ == "__main__":
+    create_tables()
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\departments_data.py ######
+#!/usr/bin/env python3
+import mysql.connector
+import os
+import logging
+from mysql.connector import Error
+
+logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'))
+logger = logging.getLogger(__name__)
+
+DEPARTMENTS = [
+    ('d001', 'Marketing'),
+    ('d002', 'Finance'),
+    ('d003', 'Human Resources'),
+    ('d004', 'Research and Development'),
+    ('d005', 'Quality Assurance'),
+    ('d006', 'Sales'),
+    ('d007', 'IT'),
+    ('d008', 'Operations'),
+    ('d009', 'Customer Support'),
+    ('d010', 'Product Management')
+]
+
+def get_db_config():
+    return {
+        'host': os.getenv('MYSQL_HOST', 'localhost'),
+        'user': os.getenv('MYSQL_USER'),
+        'password': os.getenv('MYSQL_PASSWORD'),
+        'database': os.getenv('MYSQL_DATABASE'),
+        'raise_on_warnings': True
+    }
+
+def main():
+    try:
+        conn = mysql.connector.connect(**get_db_config())
+        cursor = conn.cursor()
+        
+        # Insert departments
+        cursor.executemany(
+            """INSERT INTO departments (dept_no, dept_name)
+               VALUES (%s, %s)
+               ON DUPLICATE KEY UPDATE dept_name = VALUES(dept_name)""",
+            DEPARTMENTS
+        )
+        
+        # Initialize manager_budget with realistic values
+        cursor.execute("""
+            UPDATE departments 
+            SET manager_budget = 
+                CASE 
+                    WHEN dept_name IN ('IT', 'Sales', 'Research and Development')
+                    THEN FLOOR(1500000 + RAND() * 500000)
+                    ELSE FLOOR(800000 + RAND() * 400000)
+                END
+            WHERE manager_budget IS NULL
+        """)
+        
+        conn.commit()
+        logger.info(f"Inserted {len(DEPARTMENTS)} departments successfully")
+        
+    except Error as e:
+        logger.error(f"Error: {e}")
+        if 'conn' in locals():
+            conn.rollback()
+        raise
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
+
+if __name__ == "__main__":
+    main()
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\healthcheck.sh ######
+#!/bin/bash
+set -eo pipefail
+
+if ! mysqladmin ping -h"localhost" -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" --silent; then
+    exit 1
+fi
+
+mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1
+exit $?
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\init-db.sh ######
+#!/bin/bash
+set -e
+
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" << EOSQL
+-- Create users
+CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+CREATE USER IF NOT EXISTS '$MYSQL_MONITOR_USER'@'%' IDENTIFIED BY '$MYSQL_MONITOR_PASSWORD';
+
+-- Grant permissions
+GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON performance_schema.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON sys.* TO '$MYSQL_MONITOR_USER'@'%';
+GRANT SELECT ON information_schema.* TO '$MYSQL_MONITOR_USER'@'%';
+
+-- Enable monitoring
+UPDATE performance_schema.setup_instruments 
+SET ENABLED = 'YES', TIMED = 'YES'
+WHERE NAME LIKE '%statement/%' 
+   OR NAME LIKE '%stage/%'
+   OR NAME LIKE '%wait/%'
+   OR NAME LIKE '%memory/%';
+
+UPDATE performance_schema.setup_consumers
+SET ENABLED = 'YES'
+WHERE NAME LIKE '%events%';
+
+FLUSH PRIVILEGES;
+EOSQL
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\load_data.py ######
+#!/usr/bin/env python3
+import mysql.connector
+import random
+from datetime import date, timedelta
+from faker import Faker
+import os
+import logging
+import time
+from mysql.connector import Error
+
+logging.basicConfig(
+    level=os.getenv('LOG_LEVEL', 'INFO'),
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def get_db_config():
+    return {
+        'host': os.getenv('MYSQL_HOST', 'localhost'),
+        'user': os.getenv('MYSQL_USER'),
+        'password': os.getenv('MYSQL_PASSWORD'),
+        'database': os.getenv('MYSQL_DATABASE'),
+        'raise_on_warnings': True,
+        'connect_timeout': 30
+    }
+
+def generate_employee_batch(start_emp_no, batch_size, fake):
+    employees = []
+    salaries = []
+    dept_assignments = []
+    departments = ['d001', 'd002', 'd003', 'd004', 'd005', 
+                  'd006', 'd007', 'd008', 'd009', 'd010']
+    
+    for i in range(batch_size):
+        emp_no = start_emp_no + i
+        birth_date = fake.date_between(start_date='-65y', end_date='-25y')
+        hire_date = fake.date_between(start_date='-20y', end_date='today')
+        
+        employees.append((
+            emp_no,
+            birth_date,
+            fake.first_name(),
+            fake.last_name(),
+            random.choice(['M', 'F']),
+            hire_date
+        ))
+        
+        # Generate salary history with realistic progression
+        current_date = hire_date
+        base_salary = random.randint(30000, 70000)
+        for year in range(random.randint(2, 4)):
+            salary = base_salary * (1 + year * 0.05)  # 5% raise each year
+            if random.random() < 0.05:  # 5% outliers
+                salary *= random.uniform(1.5, 2.0)
+            
+            to_date = date(9999, 1, 1) if year == 0 else \
+                     current_date + timedelta(days=365)
+            
+            salaries.append((emp_no, int(salary), current_date, to_date))
+            current_date = to_date
+        
+        # Department assignments with realistic distribution
+        num_depts = random.choices([1, 2], weights=[0.8, 0.2])[0]  # 80% in one dept, 20% in two
+        selected_depts = random.sample(departments, num_depts)
+        for dept_no in selected_depts:
+            dept_assignments.append((
+                emp_no,
+                dept_no,
+                hire_date,
+                date(9999, 1, 1)
+            ))
+    
+    return employees, salaries, dept_assignments
+
+def main():
+    batch_size = int(os.getenv('BATCH_SIZE', 1000))
+    total_employees = int(os.getenv('TOTAL_EMPLOYEES', 10000))
+    
+    try:
+        conn = mysql.connector.connect(**get_db_config())
+        cursor = conn.cursor()
+        
+        fake = Faker()
+        logger.info(f"Starting data load: {total_employees} employees")
+        
+        for batch_start in range(0, total_employees, batch_size):
+            start_time = time.time()
+            
+            try:
+                employees, salaries, dept_assignments = generate_employee_batch(
+                    batch_start + 1000000,  # Starting emp_no
+                    min(batch_size, total_employees - batch_start),
+                    fake
+                )
+                
+                cursor.executemany(
+                    """INSERT INTO employees 
+                       (emp_no, birth_date, first_name, last_name, gender, hire_date)
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    employees
+                )
+                
+                cursor.executemany(
+                    """INSERT INTO salaries 
+                       (emp_no, salary, from_date, to_date)
+                       VALUES (%s, %s, %s, %s)""",
+                    salaries
+                )
+                
+                cursor.executemany(
+                    """INSERT INTO dept_emp 
+                       (emp_no, dept_no, from_date, to_date)
+                       VALUES (%s, %s, %s, %s)""",
+                    dept_assignments
+                )
+                
+                conn.commit()
+                
+                elapsed = time.time() - start_time
+                logger.info(
+                    f"Batch {batch_start//batch_size + 1} completed: "
+                    f"{len(employees)} employees loaded in {elapsed:.2f}s"
+                )
+                
+            except Error as e:
+                logger.error(f"Error in batch starting at {batch_start}: {e}")
+                conn.rollback()
+                continue
+            
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        raise
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
             conn.close()
 
 if __name__ == "__main__":
@@ -1180,20 +1912,13 @@ bash verify_environment.sh
 FROM node:20-alpine
 
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
-RUN npm install --omit=dev && \
-    npm cache clean --force
-
-# Copy application files
+RUN npm install --omit=dev
 COPY . .
 
 EXPOSE 3000
-
 CMD ["node", "server.js"]
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\newrelic.cjs ######
 'use strict';
 
@@ -1229,18 +1954,17 @@ exports.config = {
   "name": "api-service",
   "version": "1.0.0",
   "type": "module",
+  "dependencies": {
+    "express": "^4.17.1",
+    "express-async-handler": "^1.1.4",
+    "mysql2": "^2.3.3"
+  },
   "scripts": {
     "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "mysql2": "^3.6.1",
-    "newrelic": "^12.8.1",
-    "express-async-handler": "^1.2.0"
   }
 }
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\server.js ######
-import 'newrelic';
 import express from 'express';
 import { createPool } from 'mysql2/promise';
 import asyncHandler from 'express-async-handler';
@@ -1249,178 +1973,13 @@ const app = express();
 
 const pool = createPool({
     host: process.env.MYSQL_HOST,
-    port: parseInt(process.env.MYSQL_PORT || '3306', 10),
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
     waitForConnections: true,
-    connectionLimit: 25,
-    queueLimit: 0,
-    enableKeepAlive: false
+    connectionLimit: 10
 });
 
-// Complex analytical query
-app.get('/employee-analysis', asyncHandler(async (req, res) => {
-    const query = `
-        WITH RECURSIVE employee_hierarchy AS (
-            SELECT 
-                e.emp_no,
-                e.first_name,
-                e.last_name,
-                d.dept_name,
-                s.salary,
-                1 as level,
-                e.salary_tier,
-                CAST(CONCAT(e.emp_no) AS CHAR(1000)) as path
-            FROM employees e
-            JOIN dept_emp de ON e.emp_no = de.emp_no
-            JOIN departments d ON de.dept_no = d.dept_no
-            JOIN salaries s ON e.emp_no = s.emp_no
-            WHERE s.to_date = '9999-01-01'
-            AND (e.last_name LIKE 'A%' OR e.last_name LIKE 'B%')
-            
-            UNION ALL
-            
-            SELECT 
-                e2.emp_no,
-                e2.first_name,
-                e2.last_name,
-                d2.dept_name,
-                s2.salary,
-                h.level + 1,
-                e2.salary_tier,
-                CONCAT(h.path, ',', e2.emp_no)
-            FROM employee_hierarchy h
-            JOIN dept_emp de2 ON h.emp_no = de2.emp_no
-            JOIN departments d2 ON de2.dept_no = d2.dept_no
-            JOIN employees e2 ON de2.emp_no = e2.emp_no
-            JOIN salaries s2 ON e2.emp_no = s2.emp_no
-            WHERE s2.to_date = '9999-01-01'
-            AND h.level < 3
-        )
-        SELECT 
-            dept_name,
-            COUNT(DISTINCT emp_no) as emp_count,
-            AVG(salary) as avg_salary,
-            MAX(level) as hierarchy_depth,
-            GROUP_CONCAT(DISTINCT CONCAT(first_name, ' ', last_name) 
-                ORDER BY salary DESC SEPARATOR '; ' LIMIT 10) as top_earners,
-            SUM(CASE WHEN salary_tier = 1 THEN 1 ELSE 0 END) as tier1_count,
-            SUM(CASE WHEN salary_tier = 4 THEN 1 ELSE 0 END) as tier4_count,
-            path
-        FROM employee_hierarchy
-        GROUP BY dept_name, path
-        HAVING avg_salary > (
-            SELECT AVG(salary) * 0.8 FROM salaries WHERE to_date = '9999-01-01'
-        )
-        ORDER BY avg_salary DESC`;
-
-    const [results] = await pool.query(query);
-    res.json(results);
-}));
-
-// Memory-intensive operation
-app.get('/salary-distribution', asyncHandler(async (req, res) => {
-    const detailed = req.query.detailed === 'true';
-    const conn = await pool.getConnection();
-    
-    try {
-        await conn.query('DROP TEMPORARY TABLE IF EXISTS salary_stats');
-        await conn.query(`
-            CREATE TEMPORARY TABLE salary_stats AS
-            SELECT 
-                d.dept_name,
-                e.gender,
-                e.birth_month,
-                e.hire_year,
-                e.salary_tier,
-                s.salary,
-                NTILE(100) OVER (PARTITION BY d.dept_name ORDER BY s.salary) as percentile,
-                COUNT(*) OVER (PARTITION BY d.dept_name) as dept_count,
-                AVG(s.salary) OVER (
-                    PARTITION BY d.dept_name, e.gender
-                    ORDER BY s.from_date
-                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                ) as cumulative_avg_by_gender,
-                DENSE_RANK() OVER (ORDER BY s.salary DESC) as salary_rank
-            FROM employees e
-            JOIN dept_emp de ON e.emp_no = de.emp_no
-            JOIN departments d ON de.dept_no = d.dept_no
-            JOIN salaries s ON e.emp_no = s.emp_no
-            WHERE s.to_date = '9999-01-01'`);
-
-        const query = detailed ? `
-            SELECT 
-                dept_name,
-                gender,
-                birth_month,
-                hire_year,
-                salary_tier,
-                AVG(salary) as avg_salary,
-                MIN(salary) as min_salary,
-                MAX(salary) as max_salary,
-                COUNT(*) as employee_count,
-                AVG(cumulative_avg_by_gender) as avg_cumulative_by_gender,
-                GROUP_CONCAT(DISTINCT percentile ORDER BY percentile) as percentile_distribution
-            FROM salary_stats
-            GROUP BY 
-                dept_name, 
-                gender, 
-                birth_month,
-                hire_year,
-                salary_tier
-            WITH ROLLUP` :
-            `SELECT 
-                dept_name,
-                gender,
-                AVG(salary) as avg_salary,
-                COUNT(*) as employee_count
-            FROM salary_stats
-            GROUP BY dept_name, gender`;
-
-        const [results] = await conn.query(query);
-        res.json(results);
-    } finally {
-        conn.release();
-    }
-}));
-
-// Lock contention generator
-app.get('/update-salaries', asyncHandler(async (req, res) => {
-    const connections = await Promise.all(Array(5).fill().map(() => pool.getConnection()));
-    
-    try {
-        await Promise.all(connections.map(async (conn, index) => {
-            await conn.beginTransaction();
-            
-            const targetTier = (index % 4) + 1;
-            const query = `
-                UPDATE salaries s
-                JOIN employees e ON s.emp_no = e.emp_no
-                JOIN dept_emp de ON e.emp_no = de.emp_no
-                JOIN departments d ON de.dept_no = d.dept_no
-                SET s.salary = s.salary * ?
-                WHERE e.salary_tier = ?
-                AND s.to_date = '9999-01-01'
-                AND de.to_date = '9999-01-01'`;
-            
-            const multiplier = 1 + (Math.random() * 0.2 - 0.1); // Â±10%
-            
-            await conn.query(query, [multiplier, targetTier]);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await conn.commit();
-        }));
-        
-        res.json({ status: 'success' });
-    } catch (error) {
-        await Promise.all(connections.map(conn => conn.rollback()));
-        throw error;
-    } finally {
-        connections.forEach(conn => conn.release());
-    }
-}));
-
-// Health check
 app.get('/health', asyncHandler(async (req, res) => {
     await pool.query('SELECT 1');
     res.json({ status: 'healthy' });
@@ -1428,17 +1987,12 @@ app.get('/health', asyncHandler(async (req, res) => {
 
 app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal Server Error' });
 });
 
 const port = process.env.API_PORT || 3000;
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
-});
-
-process.on('SIGTERM', async () => {
-    await pool.end();
-    process.exit(0);
 });
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\database\schema.sql ######
 -- Create employees table
@@ -1481,143 +2035,23 @@ CREATE TABLE salaries (
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\load-generator\Dockerfile ######
 FROM grafana/k6:latest
-
-# Copy test scripts
 COPY scripts/ /scripts/
-
 WORKDIR /scripts
-
-# Default command to run k6
 CMD ["run", "load-test.js"]
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\load-generator\scripts\load-test.js ######
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 export const options = {
-    scenarios: {
-        // Heavy analytical queries
-        analytical_load: {
-            executor: 'constant-vus',
-            vus: 10,
-            duration: '30m',
-            exec: 'runAnalyticalQueries'
-        },
-        
-        // Lock contention generator
-        lock_contention: {
-            executor: 'ramping-arrival-rate',
-            startRate: 5,
-            timeUnit: '1s',
-            preAllocatedVUs: 20,
-            stages: [
-                { duration: '5m', target: 10 },
-                { duration: '10m', target: 20 },
-                { duration: '5m', target: 5 }
-            ],
-            exec: 'generateLockContention'
-        },
-        
-        // Memory pressure generator
-        memory_pressure: {
-            executor: 'per-vu-iterations',
-            vus: 15,
-            iterations: 100,
-            maxDuration: '30m',
-            exec: 'generateMemoryPressure'
-        },
-        
-        // Mixed workload
-        mixed_load: {
-            executor: 'ramping-vus',
-            startVUs: 0,
-            stages: [
-                { duration: '5m', target: 20 },
-                { duration: '10m', target: 40 },
-                { duration: '5m', target: 10 }
-            ],
-            exec: 'runMixedWorkload'
-        }
-    },
-    thresholds: {
-        http_req_failed: ['rate<0.05'],
-        http_req_duration: ['p(95)<5000']
-    }
+    vus: 10,
+    duration: '30s'
 };
 
-const BASE_URL = __ENV.API_URL || 'http://localhost:3000';
-
-function makeRequest(url, name) {
-    const response = http.get(`${BASE_URL}${url}`);
+export default function() {
+    const response = http.get('http://api:3000/health');
     check(response, {
-        [`${name} status was 200`]: (r) => r.status === 200,
-        [`${name} duration < 5s`]: (r) => r.timings.duration < 5000
+        'status is 200': (r) => r.status === 200
     });
-    return response;
+    sleep(1);
 }
-
-// Heavy analytical queries
-export function runAnalyticalQueries() {
-    makeRequest('/employee-analysis?detailed=true', 'Employee Analysis');
-    sleep(Math.random() * 2 + 1);
-    
-    makeRequest('/salary-distribution?detailed=true', 'Salary Distribution');
-    sleep(Math.random() * 3 + 2);
-}
-
-// Lock contention generator
-export function generateLockContention() {
-    const requests = [];
-    for (let i = 0; i < 3; i++) {
-        requests.push(['GET', `${BASE_URL}/update-salaries`]);
-    }
-    
-    const responses = http.batch(requests);
-    responses.forEach((response, index) => {
-        check(response, {
-            [`Lock contention ${index + 1} status was 200`]: (r) => r.status === 200
-        });
-    });
-    
-    sleep(Math.random() * 1 + 0.5);
-}
-
-// Memory pressure generator
-export function generateMemoryPressure() {
-    const requests = [];
-    for (let i = 0; i < 5; i++) {
-        requests.push(['GET', `${BASE_URL}/salary-distribution?detailed=true`]);
-    }
-    
-    const responses = http.batch(requests);
-    responses.forEach((response, index) => {
-        check(response, {
-            [`Memory pressure ${index + 1} status was 200`]: (r) => r.status === 200
-        });
-    });
-    
-    sleep(Math.random() * 2 + 1);
-}
-
-// Mixed workload
-export function runMixedWorkload() {
-    const endpoints = [
-        { url: '/employee-analysis', weight: 2 },
-        { url: '/salary-distribution', weight: 3 },
-        { url: '/update-salaries', weight: 1 }
-    ];
-    
-    let totalWeight = endpoints.reduce((sum, endpoint) => sum + endpoint.weight, 0);
-    let random = Math.random() * totalWeight;
-    
-    for (const endpoint of endpoints) {
-        if (random < endpoint.weight) {
-            makeRequest(endpoint.url, 'Mixed Workload');
-            break;
-        }
-        random -= endpoint.weight;
-    }
-    
-    sleep(Math.random() * 1 + 0.5);
-}
-
-e
