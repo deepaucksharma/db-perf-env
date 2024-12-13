@@ -1,25 +1,28 @@
 'use strict';
 
 exports.config = {
-  app_name: ['MySQL-Employee-Performance-API'],
+  app_name: [process.env.NEW_RELIC_APP_NAME],
   license_key: process.env.NEW_RELIC_LICENSE_KEY,
-  distributed_tracing: {
+  logging: {
+    level: 'info',
     enabled: true
   },
-  transaction_tracer: {
-    enabled: true,
-    // Obfuscate SQL to avoid exposing sensitive data, while still providing query structure
-    record_sql: 'obfuscated', 
-    // EXPLAIN queries longer than 250ms for deeper insight
-    explain_threshold: 250
+  allow_all_headers: true,
+  attributes: {
+    exclude: [
+      'request.headers.cookie',
+      'request.headers.authorization',
+      'request.headers.proxyAuthorization',
+      'request.headers.setCookie*',
+      'request.headers.x*',
+      'response.headers.cookie',
+      'response.headers.authorization',
+      'response.headers.proxyAuthorization',
+      'response.headers.setCookie*',
+      'response.headers.x*'
+    ]
   },
   slow_sql: {
     enabled: true
-  },
-  attributes: {
-    enabled: true
-  },
-  logging: {
-    level: 'info'
   }
 };

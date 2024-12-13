@@ -1,29 +1,17 @@
 FROM node:20-alpine
 
-# Add debugging utilities
-RUN apk add --no-cache curl
-
 WORKDIR /app
 
-# Copy package files first
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies with debug output
-RUN echo "Installing dependencies..." && \
-    npm install && \
-    npm cache clean --force && \
-    echo "Dependencies installed successfully"
+# Install dependencies
+RUN npm install --omit=dev && \
+    npm cache clean --force
 
-# Copy the rest of the application
+# Copy application files
 COPY . .
-
-RUN ls -la && \
-    echo "Checking for required files..." && \
-    test -f server.js && echo "server.js exists" && \
-    test -f newrelic.cjs && echo "newrelic.cjs exists" && \
-    test -f package.json && echo "package.json exists"
 
 EXPOSE 3000
 
-# Start with more verbose output
-CMD ["sh", "-c", "echo 'Starting server...' && node server.js"]
+CMD ["node", "server.js"]

@@ -12,27 +12,20 @@ integrations:
       EXTENDED_INNODB_METRICS: true
       EXTENDED_PERFORMANCE_METRICS: true
       TABLES_METRICS: true
-    labels:
-      environment: performance_testing
-      role: primary
-    inventory_source: config/mysql
+    
     config:
-      # Collect specific query metrics
       slow_query_metrics: true
       query_response_time_stats: true
       
-      # InnoDB metrics collection
       innodb_metrics:
         buffer_pool_metrics: true
         lock_metrics: true
         page_metrics: true
         
-      # Table metrics collection
       table_metrics:
         size_metrics: true
         index_metrics: true
         
-      # Specific table monitoring
       tables:
         - employees
         - departments

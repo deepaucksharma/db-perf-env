@@ -1,6 +1,6 @@
-USE employees;
+USE ${MYSQL_DATABASE};
 
--- Original employee_stats view remains unchanged
+-- Employee statistics view
 CREATE OR REPLACE VIEW employee_stats AS
 SELECT 
     YEAR(birth_date) as birth_year,
@@ -11,7 +11,7 @@ SELECT
 FROM employees
 GROUP BY YEAR(birth_date), gender;
 
--- Add complex view with multiple joins and aggregations
+-- Employee performance view with hierarchical data
 CREATE OR REPLACE VIEW employee_performance AS
 WITH RECURSIVE date_sequence AS (
     SELECT CURDATE() - INTERVAL 12 MONTH as date

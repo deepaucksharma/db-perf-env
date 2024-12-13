@@ -1,0 +1,28 @@
+custom_monitors:
+  slow_queries:
+    threshold: 1
+    period: 60
+    metric_name: SlowQueryCount
+    query: |
+      SELECT COUNT(*) as count
+      FROM performance_schema.events_statements_history
+      WHERE TIMER_WAIT > 1000000000000
+
+  lock_contentions:
+    threshold: 5
+    period: 60
+    metric_name: LockContentionCount
+    query: |
+      SELECT COUNT(*) as count
+      FROM performance_schema.events_waits_current
+      WHERE EVENT_NAME LIKE 'wait/lock%'
+
+  memory_pressure:
+    threshold: 90
+    period: 60
+    metric_name: MemoryPressure
+    query: |
+      SELECT SUBSTRING_INDEX(event_name,'/',2) as event_type,
+             SUM(current_alloc) as current_bytes
+      FROM performance_schema.memory_summary_global_by_event_name
+      GROUP BY SUBSTRING_INDEX(event_name,'/',2)

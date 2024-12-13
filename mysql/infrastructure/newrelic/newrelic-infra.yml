@@ -1,4 +1,17 @@
 license_key: ${NEW_RELIC_LICENSE_KEY}
-log_file: /var/log/newrelic-infra/newrelic-infra.log
-log_to_stdout: false
-log_format: json
+display_name: MySQL-Performance-Demo
+custom_attributes:
+  environment: performance_testing
+  service: mysql_performance
+
+enable_process_metrics: true
+strip_command_line: false
+
+log:
+  level: info
+  file: /var/log/newrelic-infra/newrelic-infra.log
+
+# Integration configurations
+integrations_config:
+  protocol_version: 4
+  interval: 15s
