@@ -4,6 +4,7 @@ services:
       context: ./db-setup
       dockerfile: Dockerfile
     container_name: mysql-db
+    profiles: ["docker"]
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -12,102 +13,73 @@ services:
       MYSQL_MONITOR_USER: ${MYSQL_MONITOR_USER}
       MYSQL_MONITOR_PASSWORD: ${MYSQL_MONITOR_PASSWORD}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
       - ./db-setup/config:/etc/mysql/conf.d
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     healthcheck:
-      test: mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "$MYSQL_USER", "-p$MYSQL_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
+    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
 
   api:
     build:
       context: ./services/api
       dockerfile: Dockerfile
     container_name: employees-api
+    profiles: ["docker", "local"]
     environment:
-      MYSQL_HOST: mysql-db
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       API_PORT: ${API_PORT}
       NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
-      NODE_ENV: production
-    volumes:
-      - api_logs:/var/log/newrelic
+      NODE_ENV: ${NODE_ENV:-production}
     ports:
       - "${API_PORT}:3000"
+    networks:
+      - backend
     depends_on:
       mysql:
         condition: service_healthy
-    networks:
-      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: curl -f http://localhost:3000/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   load-generator:
     build:
       context: ./services/load-generator
       dockerfile: Dockerfile
+    profiles: ["docker", "local"]
     environment:
       API_URL: http://api:3000
-      K6_VUS: ${K6_VUS}
-      K6_DURATION: ${K6_DURATION}
-      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
-    depends_on:
-      - api
-    networks:
-      - backend
-
-  newrelic-infra:
-    image: newrelic/infrastructure:latest
-    container_name: newrelic-infra
-    user: root
-    cap_add:
-      - SYS_PTRACE
-    pid: host
-    environment:
-      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-      - NRIA_DISPLAY_NAME=MySQL-Performance-Demo
-    volumes:
-      - /:/host:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./infrastructure/newrelic/newrelic-infra.yml:/etc/newrelic-infra.yml
-      - newrelic_logs:/var/log/newrelic-infra
+      K6_VUS: ${K6_VUS:-10}
+      K6_DURATION: ${K6_DURATION:-5m}
     networks:
       - backend
     depends_on:
-      mysql:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mkdir -p /var/log/newrelic-infra &&
-        chmod -R 777 /var/log/newrelic-infra &&
-        /usr/bin/newrelic-infra
-      "
-
-  newrelic-mysql:
-    image: newrelic/infrastructure:latest
-    container_name: newrelic-mysql
-    pid: host
-    environment:
-      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-      - MYSQL_HOSTNAME=mysql-db
-      - MYSQL_PORT=3306
-      - MYSQL_USERNAME=${MYSQL_MONITOR_USER}
-      - MYSQL_PASSWORD=${MYSQL_MONITOR_PASSWORD}
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - ./infrastructure/newrelic/mysql-config.yml:/etc/newrelic-infra/integrations.d/mysql-config.yml
-    networks:
-      - backend
-    depends_on:
-      mysql:
+      api:
         condition: service_healthy
 
 networks:
@@ -117,5 +89,3 @@ networks:
 volumes:
   mysql_data:
   mysql_logs:
-  newrelic_logs:
-  api_logs:

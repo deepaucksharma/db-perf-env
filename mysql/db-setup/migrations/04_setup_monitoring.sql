@@ -1,7 +1,3 @@
-#!/bin/bash
-set -e
-
-mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOF
 -- Enable performance monitoring
 UPDATE performance_schema.setup_instruments 
 SET ENABLED = 'YES', TIMED = 'YES'
@@ -24,4 +20,3 @@ GRANT SELECT ON performance_schema.* TO '$MYSQL_MONITOR_USER'@'%';
 GRANT SELECT ON sys.* TO '$MYSQL_MONITOR_USER'@'%';
 
 FLUSH PRIVILEGES;
-EOF

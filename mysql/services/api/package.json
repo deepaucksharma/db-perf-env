@@ -2,10 +2,18 @@
   "name": "mysql-perf-api",
   "version": "1.0.0",
   "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development nodemon server.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "express-async-handler": "^1.2.0",
     "mysql2": "^3.6.5",
     "newrelic": "^11.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }

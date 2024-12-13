@@ -1,33 +1,27 @@
 # Environment files
-.env*
+*.env
 !.env.example
+!.env.docker
+!.env.local.template
+.env.local
+.env.*.local
+docker-compose.override.yml
 
-# Logs
+# Existing entries remain unchanged
 *.log
 logs/
 mysql_logs/
-
-# Dependencies
 node_modules/
 __pycache__/
 *.pyc
-
-# IDE and editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Build and data directories
 mysql_data/
 data/
-
-# Docker
 .docker/
-docker-compose.override.yml
-
-# Temporary files
 *.tmp
 *.temp
 .DS_Store

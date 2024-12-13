@@ -23,6 +23,35 @@ K6_VUS=50
 K6_DURATION=30m
 NEW_RELIC_LICENSE_KEY=eu01xx0ce15fea0f04db4b9d9ecce89dFFFFNRAL
 NEW_RELIC_APP_NAME=MySQL-Perf-Demo
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.docker ######
+# Database Configuration
+MYSQL_HOST=mysql-db
+MYSQL_PORT=3306
+MYSQL_USER=myuser
+MYSQL_PASSWORD=userpass123
+MYSQL_DATABASE=employees
+MYSQL_ROOT_PASSWORD=secure_root_pw123
+
+# Monitor User Configuration
+MYSQL_MONITOR_USER=monitor
+MYSQL_MONITOR_PASSWORD=monitorpass123
+
+# Performance Settings
+BATCH_SIZE=1000
+TOTAL_EMPLOYEES=10000
+
+# API Configuration
+API_PORT=3000
+NODE_ENV=production
+
+# Load Generator Configuration
+K6_VUS=50
+K6_DURATION=30m
+
+# New Relic Configuration
+NEW_RELIC_LICENSE_KEY=your_license_key
+NEW_RELIC_APP_NAME=MySQL-Perf-Demo
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.example ######
 MYSQL_ROOT_PASSWORD=demo123
 MYSQL_DATABASE=employees
@@ -55,37 +84,60 @@ NEW_RELIC_APP_NAME=MySQL-Demo
 # Environment
 NODE_ENV=development
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.local.template ######
+# Database Configuration
+MYSQL_HOST=host.docker.internal
+MYSQL_PORT=3306
+MYSQL_USER=local_user
+MYSQL_PASSWORD=local_pass
+MYSQL_DATABASE=employees
+MYSQL_ROOT_PASSWORD=local_root_pw
+
+# Monitor User Configuration
+MYSQL_MONITOR_USER=monitor
+MYSQL_MONITOR_PASSWORD=monitor_pass
+
+# Performance Settings
+BATCH_SIZE=1000
+TOTAL_EMPLOYEES=5000
+
+# API Configuration
+API_PORT=3000
+NODE_ENV=development
+
+# Load Generator Configuration
+K6_VUS=10
+K6_DURATION=5m
+
+# New Relic Configuration
+NEW_RELIC_LICENSE_KEY=your_local_license_key
+NEW_RELIC_APP_NAME=MySQL-Perf-Demo-Local
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.gitignore ######
 # Environment files
-.env*
+*.env
 !.env.example
+!.env.docker
+!.env.local.template
+.env.local
+.env.*.local
+docker-compose.override.yml
 
-# Logs
+# Existing entries remain unchanged
 *.log
 logs/
 mysql_logs/
-
-# Dependencies
 node_modules/
 __pycache__/
 *.pyc
-
-# IDE and editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Build and data directories
 mysql_data/
 data/
-
-# Docker
 .docker/
-docker-compose.override.yml
-
-# Temporary files
 *.tmp
 *.temp
 .DS_Store
@@ -116,6 +168,35 @@ K6_VUS=50
 K6_DURATION=30m
 NEW_RELIC_LICENSE_KEY=eu01xx0ce15fea0f04db4b9d9ecce89dFFFFNRAL
 NEW_RELIC_APP_NAME=MySQL-Perf-Demo
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.docker ######
+# Database Configuration
+MYSQL_HOST=mysql-db
+MYSQL_PORT=3306
+MYSQL_USER=myuser
+MYSQL_PASSWORD=userpass123
+MYSQL_DATABASE=employees
+MYSQL_ROOT_PASSWORD=secure_root_pw123
+
+# Monitor User Configuration
+MYSQL_MONITOR_USER=monitor
+MYSQL_MONITOR_PASSWORD=monitorpass123
+
+# Performance Settings
+BATCH_SIZE=1000
+TOTAL_EMPLOYEES=10000
+
+# API Configuration
+API_PORT=3000
+NODE_ENV=production
+
+# Load Generator Configuration
+K6_VUS=50
+K6_DURATION=30m
+
+# New Relic Configuration
+NEW_RELIC_LICENSE_KEY=your_license_key
+NEW_RELIC_APP_NAME=MySQL-Perf-Demo
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.example ######
 MYSQL_ROOT_PASSWORD=demo123
 MYSQL_DATABASE=employees
@@ -148,49 +229,75 @@ NEW_RELIC_APP_NAME=MySQL-Demo
 # Environment
 NODE_ENV=development
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.local.template ######
+# Database Configuration
+MYSQL_HOST=host.docker.internal
+MYSQL_PORT=3306
+MYSQL_USER=local_user
+MYSQL_PASSWORD=local_pass
+MYSQL_DATABASE=employees
+MYSQL_ROOT_PASSWORD=local_root_pw
+
+# Monitor User Configuration
+MYSQL_MONITOR_USER=monitor
+MYSQL_MONITOR_PASSWORD=monitor_pass
+
+# Performance Settings
+BATCH_SIZE=1000
+TOTAL_EMPLOYEES=5000
+
+# API Configuration
+API_PORT=3000
+NODE_ENV=development
+
+# Load Generator Configuration
+K6_VUS=10
+K6_DURATION=5m
+
+# New Relic Configuration
+NEW_RELIC_LICENSE_KEY=your_local_license_key
+NEW_RELIC_APP_NAME=MySQL-Perf-Demo-Local
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.gitignore ######
 # Environment files
-.env*
+*.env
 !.env.example
+!.env.docker
+!.env.local.template
+.env.local
+.env.*.local
+docker-compose.override.yml
 
-# Logs
+# Existing entries remain unchanged
 *.log
 logs/
 mysql_logs/
-
-# Dependencies
 node_modules/
 __pycache__/
 *.pyc
-
-# IDE and editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Build and data directories
 mysql_data/
 data/
-
-# Docker
 .docker/
-docker-compose.override.yml
-
-# Temporary files
 *.tmp
 *.temp
 .DS_Store
 
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\docker-compose.yml ######
+version: '3.8'
+
 services:
   mysql:
     build:
       context: ./db-setup
       dockerfile: Dockerfile
     container_name: mysql-db
+    profiles: ["docker"]
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -199,7 +306,7 @@ services:
       MYSQL_MONITOR_USER: ${MYSQL_MONITOR_USER}
       MYSQL_MONITOR_PASSWORD: ${MYSQL_MONITOR_PASSWORD}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
@@ -207,94 +314,57 @@ services:
     networks:
       - backend
     healthcheck:
-      test: mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
+    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
 
   api:
     build:
       context: ./services/api
       dockerfile: Dockerfile
     container_name: employees-api
+    profiles: ["docker", "local"]
     environment:
-      MYSQL_HOST: mysql-db
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       API_PORT: ${API_PORT}
       NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
-      NODE_ENV: production
-    volumes:
-      - api_logs:/var/log/newrelic
+      NODE_ENV: ${NODE_ENV:-production}
     ports:
       - "${API_PORT}:3000"
+    networks:
+      - backend
     depends_on:
       mysql:
         condition: service_healthy
-    networks:
-      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   load-generator:
     build:
       context: ./services/load-generator
       dockerfile: Dockerfile
+    profiles: ["docker", "local"]
     environment:
       API_URL: http://api:3000
-      K6_VUS: ${K6_VUS}
-      K6_DURATION: ${K6_DURATION}
-      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
-    depends_on:
-      - api
-    networks:
-      - backend
-
-  newrelic-infra:
-    image: newrelic/infrastructure:latest
-    container_name: newrelic-infra
-    user: root
-    cap_add:
-      - SYS_PTRACE
-    pid: host
-    environment:
-      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-      - NRIA_DISPLAY_NAME=MySQL-Performance-Demo
-    volumes:
-      - /:/host:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./infrastructure/newrelic/newrelic-infra.yml:/etc/newrelic-infra.yml
-      - newrelic_logs:/var/log/newrelic-infra
+      K6_VUS: ${K6_VUS:-10}
+      K6_DURATION: ${K6_DURATION:-5m}
     networks:
       - backend
     depends_on:
-      mysql:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mkdir -p /var/log/newrelic-infra &&
-        chmod -R 777 /var/log/newrelic-infra &&
-        /usr/bin/newrelic-infra
-      "
-
-  newrelic-mysql:
-    image: newrelic/infrastructure:latest
-    container_name: newrelic-mysql
-    pid: host
-    environment:
-      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-      - MYSQL_HOSTNAME=mysql-db
-      - MYSQL_PORT=3306
-      - MYSQL_USERNAME=${MYSQL_MONITOR_USER}
-      - MYSQL_PASSWORD=${MYSQL_MONITOR_PASSWORD}
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - ./infrastructure/newrelic/mysql-config.yml:/etc/newrelic-infra/integrations.d/mysql-config.yml
-    networks:
-      - backend
-    depends_on:
-      mysql:
+      api:
         condition: service_healthy
 
 networks:
@@ -304,8 +374,36 @@ networks:
 volumes:
   mysql_data:
   mysql_logs:
-  newrelic_logs:
-  api_logs:
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\README.md ######
+## Deployment Options
+
+### Docker-based MySQL (Default)
+```bash
+./scripts/run.sh docker
+```
+
+### Local MySQL Setup
+1. Install MySQL locally
+2. Run setup script:
+```bash
+./scripts/setup-local.sh
+# Edit .env.local with your credentials
+```
+
+3. Start services:
+```bash
+./scripts/run.sh local
+```
+
+### Configuration Files
+- `.env.docker`: Docker MySQL configuration
+- `.env.local`: Local MySQL settings (created from template)
+- `.env.local.template`: Template for local setup
+
+### Switching Environments
+- To use Docker MySQL: `./scripts/run.sh docker`
+- To use local MySQL: `./scripts/run.sh local`
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\config\mysql.cnf ######
 # MySQL Configuration
 [mysqld]
@@ -1049,6 +1147,73 @@ WHERE NAME LIKE '%events%';
 
 FLUSH PRIVILEGES;
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\01_init_database.sql ######
+-- Initialize database
+CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
+USE ${MYSQL_DATABASE};
+
+-- Create departments table
+CREATE TABLE IF NOT EXISTS departments (
+    dept_no CHAR(4) PRIMARY KEY,
+    dept_name VARCHAR(40) NOT NULL,
+    manager_budget DECIMAL(15,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_dept_name (dept_name)
+);
+
+-- Create employees table
+CREATE TABLE IF NOT EXISTS employees (
+    emp_no INT PRIMARY KEY,
+    birth_date DATE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    gender ENUM('M','F') NOT NULL,
+    hire_date DATE NOT NULL,
+    birth_month INT GENERATED ALWAYS AS (MONTH(birth_date)) STORED,
+    hire_year INT GENERATED ALWAYS AS (YEAR(hire_date)) STORED,
+    salary_tier INT GENERATED ALWAYS AS (
+        CASE 
+            WHEN emp_no % 4 = 0 THEN 1
+            WHEN emp_no % 4 = 1 THEN 2
+            WHEN emp_no % 4 = 2 THEN 3
+            ELSE 4
+        END
+    ) STORED,
+    last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create salaries table
+CREATE TABLE IF NOT EXISTS salaries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_no INT NOT NULL,
+    salary INT NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE
+);
+
+-- Create dept_emp table
+CREATE TABLE IF NOT EXISTS dept_emp (
+    emp_no INT NOT NULL,
+    dept_no CHAR(4) NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    PRIMARY KEY (emp_no, dept_no),
+    FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE,
+    FOREIGN KEY (dept_no) REFERENCES departments (dept_no) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_employees_gender ON employees(gender);
+CREATE INDEX idx_employees_birth_month ON employees(birth_month);
+CREATE INDEX idx_employees_hire_year ON employees(hire_year);
+CREATE INDEX idx_emp_name1 ON employees(last_name, first_name);
+CREATE INDEX idx_salary_tier ON employees(salary_tier);
+CREATE INDEX idx_salaries_amount ON salaries(salary);
+CREATE INDEX idx_salaries_dates ON salaries(from_date, to_date);
+CREATE INDEX idx_dept_emp_dates ON dept_emp(from_date, to_date);
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\01_init_schema.sql ######
 -- Initialize database
 CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
@@ -1115,6 +1280,34 @@ CREATE INDEX idx_salary_tier ON employees(salary_tier);
 CREATE INDEX idx_salaries_amount ON salaries(salary);
 CREATE INDEX idx_salaries_dates ON salaries(from_date, to_date);
 CREATE INDEX idx_dept_emp_dates ON dept_emp(from_date, to_date);
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\02_create_tables.sql ######
+-- Create users with basic permissions
+CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+CREATE USER IF NOT EXISTS '${MYSQL_MONITOR_USER}'@'%' IDENTIFIED BY '${MYSQL_MONITOR_PASSWORD}';
+
+-- Grant permissions to application user
+GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
+
+-- Grant monitoring permissions
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON performance_schema.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON sys.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON information_schema.* TO '${MYSQL_MONITOR_USER}'@'%';
+
+-- Enable performance monitoring
+UPDATE performance_schema.setup_instruments 
+SET ENABLED = 'YES', TIMED = 'YES'
+WHERE NAME LIKE '%statement/%' 
+   OR NAME LIKE '%stage/%'
+   OR NAME LIKE '%wait/%'
+   OR NAME LIKE '%memory/%';
+
+UPDATE performance_schema.setup_consumers
+SET ENABLED = 'YES'
+WHERE NAME LIKE '%events%';
+
+FLUSH PRIVILEGES;
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\02_init_users.sh ######
 #!/bin/bash
 set -e
@@ -1176,11 +1369,36 @@ CALL setup_users();
 
 DROP PROCEDURE IF EXISTS setup_users;
 
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\V1__init_monitoring.sh ######
-#!/bin/bash
-set -e
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\03_init_users.sql ######
+-- Create database and users
+CREATE DATABASE IF NOT EXISTS employees;
+USE employees;
 
-mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+-- Create users and grant permissions using prepared statements
+DELIMITER //
+CREATE PROCEDURE setup_users()
+BEGIN
+    SET @create_user = CONCAT('CREATE USER IF NOT EXISTS ''', @app_user, '''@''%'' IDENTIFIED BY ''', @app_pass, '''');
+    SET @grant_privs = CONCAT('GRANT ALL PRIVILEGES ON employees.* TO ''', @app_user, '''@''%''');
+    
+    PREPARE stmt FROM @create_user;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+    
+    PREPARE stmt FROM @grant_privs;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END //
+DELIMITER ;
+
+-- Call the procedure with parameters
+SET @app_user = 'myuser';
+SET @app_pass = 'userpass123';
+CALL setup_users();
+
+DROP PROCEDURE IF EXISTS setup_users;
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\04_setup_monitoring.sql ######
 -- Enable performance monitoring
 UPDATE performance_schema.setup_instruments 
 SET ENABLED = 'YES', TIMED = 'YES'
@@ -1203,7 +1421,6 @@ GRANT SELECT ON performance_schema.* TO '$MYSQL_MONITOR_USER'@'%';
 GRANT SELECT ON sys.* TO '$MYSQL_MONITOR_USER'@'%';
 
 FLUSH PRIVILEGES;
-EOF
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\create_tables.py ######
 import mysql.connector
@@ -2087,6 +2304,71 @@ def main():
 if __name__ == "__main__":
     main()
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\run.sh ######
+#!/bin/bash
+
+MODE=${1:-docker}
+
+case $MODE in
+  docker)
+    echo "Running with Docker MySQL..."
+    cp .env.docker .env
+    docker compose --profile docker up -d
+    ;;
+  local)
+    echo "Running with local MySQL..."
+    if [ ! -f .env.local ]; then
+      echo "Error: .env.local not found. Run setup-local.sh first"
+      exit 1
+    fi
+    cp .env.local .env
+    docker compose up -d api load-generator
+    ;;
+  *)
+    echo "Usage: $0 [docker|local]"
+    exit 1
+    ;;
+esac
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\setup-local.sh ######
+#!/bin/bash
+set -e
+
+echo "Setting up local MySQL environment..."
+
+# Check MySQL installation
+if ! command -v mysql &> /dev/null; then
+    echo "Error: MySQL is not installed locally"
+    exit 1
+fi
+
+# Create .env.local from template
+if [ ! -f .env.local ]; then
+    echo "Creating .env.local from template..."
+    cp .env.local.template .env.local
+    echo "Please update .env.local with your local MySQL credentials"
+    exit 1
+fi
+
+# Source environment variables
+source .env.local
+
+# Create database and users
+mysql -u root -p <<EOF
+CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
+CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
+CREATE USER IF NOT EXISTS '${MYSQL_MONITOR_USER}'@'%' IDENTIFIED BY '${MYSQL_MONITOR_PASSWORD}';
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '${MYSQL_MONITOR_USER}'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+# Initialize database
+echo "Running initialization scripts..."
+mysql -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} < db-setup/migrations/01_init_schema.sql
+
+echo "Local MySQL setup completed!"
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\verify_setup.sh ######
 #!/bin/bash
 set -e
@@ -2121,6 +2403,28 @@ docker-compose exec mysql mysql -u"$MYSQL_MONITOR_USER" -p"$MYSQL_MONITOR_PASSWO
     -e "SELECT COUNT(*) FROM performance_schema.setup_instruments WHERE enabled='YES'"
 
 echo "Verification completed successfully!"
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\database.js ######
+const mysql = require('mysql2/promise');
+
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST,
+  port: parseInt(process.env.MYSQL_PORT || '3306'),
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
+  connectTimeout: 10000,
+  acquireTimeout: 10000,
+  debug: process.env.NODE_ENV === 'development',
+  timezone: 'Z'
+});
+
+module.exports = pool;
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\Dockerfile ######
 FROM node:20-alpine
@@ -2177,25 +2481,49 @@ exports.config = {
   "name": "mysql-perf-api",
   "version": "1.0.0",
   "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development nodemon server.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "express-async-handler": "^1.2.0",
     "mysql2": "^3.6.5",
     "newrelic": "^11.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\server.js ######
-import newrelic from 'newrelic';
-import express from 'express';
-import { createPool } from 'mysql2/promise';
-import asyncHandler from 'express-async-handler';
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\server.js ######
+'use strict';
+
+const newrelic = require('newrelic');
+const express = require('express');
+const { createPool } = require('mysql2/promise');
+const asyncHandler = require('express-async-handler');
 const app = express();
 
-// Enhanced pool configuration for better performance monitoring
+async function waitForDatabase(maxAttempts = 30, delay = 2000) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            await pool.query('SELECT 1');
+            console.log('Successfully connected to database');
+            return true;
+        } catch (error) {
+            console.log(`Database connection attempt ${attempt}/${maxAttempts} failed:`, error.message);
+            if (attempt === maxAttempts) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    return false;
+}
+
 const pool = createPool({
     host: process.env.MYSQL_HOST,
-    port: process.env.MYSQL_PORT,
+    port: parseInt(process.env.MYSQL_PORT || '3306'),
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
@@ -2203,10 +2531,16 @@ const pool = createPool({
     connectionLimit: 10,
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 0
+    keepAliveInitialDelay: 0,
+    connectTimeout: 10000,
+    // Remove acquireTimeout as it's not a valid option
+    debug: process.env.NODE_ENV === 'development',
+    // Add these options for better connection handling
+    maxIdle: 10,
+    idleTimeout: 60000,
+    timezone: 'Z'
 });
 
-// Custom NewRelic event recording with enhanced attributes
 function recordCustomEvent(eventType, attributes) {
     newrelic.recordCustomEvent(eventType, {
         ...attributes,
@@ -2216,7 +2550,6 @@ function recordCustomEvent(eventType, attributes) {
     });
 }
 
-// Enhanced database query wrapper with NewRelic instrumentation
 async function executeQuery(query, params = [], customSegmentName = '') {
     return await newrelic.startSegment(
         customSegmentName || 'database-query',
@@ -2228,13 +2561,11 @@ async function executeQuery(query, params = [], customSegmentName = '') {
                 const [s, ns] = process.hrtime(startTime);
                 const duration = s * 1000 + ns / 1000000;
                 
-                // Enhanced query metrics
                 newrelic.recordMetric(
                     `Custom/Database/Query/${customSegmentName}`,
                     duration
                 );
                 
-                // Record query execution details
                 recordCustomEvent('DatabaseQuery', {
                     query: query.substring(0, 1000),
                     duration,
@@ -2246,7 +2577,6 @@ async function executeQuery(query, params = [], customSegmentName = '') {
                 
                 return results;
             } catch (error) {
-                // Enhanced error recording
                 recordCustomEvent('DatabaseError', {
                     query: query.substring(0, 1000),
                     error: error.message,
@@ -2260,13 +2590,28 @@ async function executeQuery(query, params = [], customSegmentName = '') {
     );
 }
 
-// Basic health check
 app.get('/health', asyncHandler(async (req, res) => {
-    await executeQuery('SELECT 1', [], 'HealthCheck');
-    res.json({ status: 'healthy' });
+    const healthcheck = {
+        uptime: process.uptime(),
+        timestamp: Date.now(),
+        status: 'OK',
+        services: {
+            api: true,
+            database: false
+        }
+    };
+    
+    try {
+        await executeQuery('SELECT 1', [], 'HealthCheck');
+        healthcheck.services.database = true;
+    } catch (error) {
+        healthcheck.status = 'ERROR';
+        throw error;
+    }
+    
+    res.json(healthcheck);
 }));
 
-// Complex join query
 app.get('/complex_join', asyncHandler(async (req, res) => {
     const results = await executeQuery(
         `SELECT e.emp_no, e.first_name, e.last_name, 
@@ -2279,61 +2624,30 @@ app.get('/complex_join', asyncHandler(async (req, res) => {
          WHERE e.hire_year >= 2000
          AND d.dept_name IN ('IT', 'Sales', 'Research and Development')
          ORDER BY s.salary DESC
-         LIMIT 5000`,
+         LIMIT 100`,
         [],
         'ComplexJoinQuery'
     );
     
-    newrelic.recordMetric('Custom/Results/ComplexJoin/RowCount', results.length);
     res.json({ count: results.length, rows: results });
 }));
 
-// Random search with varying patterns
 app.get('/random_search', asyncHandler(async (req, res) => {
-    const searchType = Math.random();
-    let query, params, segmentName;
-
-    if (searchType < 0.33) {
-        const month = Math.floor(Math.random() * 12) + 1;
-        query = `
-            SELECT emp_no, first_name, last_name, birth_date, hire_date
-            FROM employees 
-            WHERE birth_month = ?
-            ORDER BY last_name ASC
-            LIMIT 1000
-        `;
-        params = [month];
-        segmentName = 'BirthMonthSearch';
-    } else if (searchType < 0.66) {
-        const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-        query = `
-            SELECT emp_no, first_name, last_name, birth_date, hire_date
-            FROM employees
-            WHERE last_name LIKE ?
-            ORDER BY hire_date DESC
-            LIMIT 1000
-        `;
-        params = [`${letter}%`];
-        segmentName = 'LastNameSearch';
-    } else {
-        const year = 1990 + Math.floor(Math.random() * 30);
-        query = `
-            SELECT emp_no, first_name, last_name, birth_date, hire_date
-            FROM employees
-            WHERE hire_year = ?
-            ORDER BY emp_no ASC
-            LIMIT 1000
-        `;
-        params = [year];
-        segmentName = 'HireYearSearch';
-    }
-
-    const results = await executeQuery(query, params, segmentName);
+    const month = Math.floor(Math.random() * 12) + 1;
+    const results = await executeQuery(
+        `SELECT emp_no, first_name, last_name, birth_date, hire_date
+         FROM employees 
+         WHERE birth_month = ?
+         ORDER BY last_name ASC
+         LIMIT 100`,
+        [month],
+        'RandomSearchQuery'
+    );
+    
     res.json({ count: results.length, rows: results });
 }));
 
-// Heavy aggregation query
-app.get('/huge_group_by', asyncHandler(async (req, res) => {
+app.get('/aggregation', asyncHandler(async (req, res) => {
     const results = await executeQuery(
         `SELECT 
             e.hire_year,
@@ -2342,58 +2656,33 @@ app.get('/huge_group_by', asyncHandler(async (req, res) => {
             COUNT(*) as emp_count,
             AVG(s.salary) as avg_salary,
             MIN(s.salary) as min_salary,
-            MAX(s.salary) as max_salary,
-            COUNT(DISTINCT d.dept_no) as dept_count
+            MAX(s.salary) as max_salary
          FROM employees e
          JOIN salaries s ON e.emp_no = s.emp_no AND s.to_date = '9999-01-01'
-         JOIN dept_emp d ON e.emp_no = d.emp_no AND d.to_date = '9999-01-01'
          GROUP BY e.hire_year, e.gender, e.salary_tier
          HAVING emp_count > 10
-         ORDER BY hire_year DESC, avg_salary DESC`,
+         ORDER BY hire_year DESC, avg_salary DESC
+         LIMIT 100`,
         [],
-        'HugeGroupByQuery'
-    );
-    
-    newrelic.recordMetric('Custom/Results/GroupBy/Groups', results.length);
-    res.json({ count: results.length, rows: results });
-}));
-
-// Low selectivity query
-app.get('/low_selectivity', asyncHandler(async (req, res) => {
-    const gender = Math.random() < 0.5 ? 'M' : 'F';
-    const results = await executeQuery(
-        `SELECT 
-            e.emp_no, e.first_name, e.last_name, e.gender,
-            e.birth_date, e.hire_date, s.salary
-         FROM employees e
-         JOIN salaries s ON e.emp_no = s.emp_no
-         WHERE e.birth_date > '1970-01-01'
-         AND s.to_date = '9999-01-01'
-         AND e.gender = ?
-         ORDER BY e.birth_date ASC
-         LIMIT 10000`,
-        [gender],
-        'LowSelectivityQuery'
+        'AggregationQuery'
     );
     
     res.json({ count: results.length, rows: results });
 }));
 
-// Memory pressure test
 app.get('/memory_pressure', asyncHandler(async (req, res) => {
     const results = await executeQuery(
         `SELECT 
-            e.emp_no, e.first_name, e.last_name, e.gender,
-            e.birth_date, e.hire_date, s.salary,
-            d.dept_name,
-            COUNT(*) OVER (PARTITION BY e.salary_tier) as tier_count
+            e.emp_no, e.first_name, e.last_name,
+            s.salary,
+            d.dept_name
          FROM employees e
          JOIN salaries s ON e.emp_no = s.emp_no AND s.to_date = '9999-01-01'
          JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
          JOIN departments d ON de.dept_no = d.dept_no
          WHERE s.salary > 50000
          ORDER BY s.salary DESC
-         LIMIT 10000`,
+         LIMIT 100`,
         [],
         'MemoryPressureQuery'
     );
@@ -2401,92 +2690,9 @@ app.get('/memory_pressure', asyncHandler(async (req, res) => {
     res.json({ count: results.length, rows: results });
 }));
 
-// Lock contention simulation
-app.get('/lock_contention', asyncHandler(async (req, res) => {
-    const conn = await pool.getConnection();
-    try {
-        await conn.beginTransaction();
-        
-        await executeQuery(
-            `UPDATE salaries s
-             JOIN employees e ON s.emp_no = e.emp_no
-             SET s.salary = s.salary * 1.02
-             WHERE e.gender = 'M' 
-             AND s.to_date = '9999-01-01'
-             AND e.salary_tier IN (1, 2)`,
-            [],
-            'LockContentionQuery'
-        );
-        
-        // Hold locks for a while
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        await conn.commit();
-        res.json({ status: 'completed' });
-    } catch (error) {
-        await conn.rollback();
-        throw error;
-    } finally {
-        conn.release();
-    }
-}));
-
-// DDL lock simulation
-app.get('/ddl_lock', asyncHandler(async (req, res) => {
-    const conn = await pool.getConnection();
-    try {
-        await conn.beginTransaction();
-        
-        await executeQuery(
-            `UPDATE departments 
-             SET manager_budget = manager_budget * 1.001 
-             WHERE dept_no IN ('d001', 'd002', 'd003')`,
-            [],
-            'DDLLockQuery'
-        );
-        
-        // Simulate concurrent DDL operation
-        setTimeout(async () => {
-            const conn2 = await pool.getConnection();
-            try {
-                await executeQuery(
-                    `ALTER TABLE salaries 
-                     ADD INDEX idx_temp_salary (salary) ALGORITHM=INPLACE`,
-                    [],
-                    'DDLOperation'
-                );
-            } catch (error) {
-                console.error("DDL error:", error);
-            } finally {
-                conn2.release();
-            }
-        }, 1000);
-
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        await conn.commit();
-        res.json({ status: 'completed' });
-    } catch (error) {
-        await conn.rollback();
-        throw error;
-    } finally {
-        conn.release();
-    }
-}));
-
-// Enhanced error handling
 app.use((err, req, res, next) => {
-    newrelic.noticeError(err, {
-        requestUrl: req.url,
-        requestMethod: req.method,
-        custom: {
-            handler: req.route?.path,
-            query: req.query,
-            body: req.body
-        }
-    });
-    
     console.error('Error:', err);
+    newrelic.noticeError(err);
     
     res.status(500).json({ 
         error: 'Internal Server Error',
@@ -2494,16 +2700,22 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start server with enhanced logging
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    newrelic.recordCustomEvent('ServerStart', {
-        port: PORT,
-        environment: process.env.NODE_ENV,
-        timestamp: Date.now()
-    });
-});
+async function startServer() {
+    try {
+        await waitForDatabase();
+        
+        const PORT = process.env.API_PORT || 3000;
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\database\schema.sql ######
 -- Create employees table
 CREATE TABLE employees (
@@ -2594,233 +2806,108 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
-// Configuration
-const baseUrl = __ENV.API_URL || 'http://api:3000';
-const newRelicConfig = {
-    accountId: __ENV.NEW_RELIC_ACCOUNT_ID,
-    apiKey: __ENV.NEW_RELIC_LICENSE_KEY,
-    insightsEndpoint: `https://insights-collector.newrelic.com/v1/accounts/${__ENV.NEW_RELIC_ACCOUNT_ID}/events`
-};
-
 // Custom metrics
 const dbLatency = new Trend('db_operation_latency');
 const errorRate = new Rate('error_rate');
-const queryCount = new Counter('queries_executed');
-const throughputRate = new Rate('throughput_rate');
-const slowQueryRate = new Rate('slow_query_rate');
+const successRate = new Rate('success_rate');
+const requestCount = new Counter('requests');
 
-// Test scenarios configuration
-const scenarios = {
-    io_heavy: [
-        { url: '/complex_join', weight: 4, tag: 'complex_join' },
-        { url: '/huge_group_by', weight: 3, tag: 'aggregation' },
-        { url: '/low_selectivity', weight: 3, tag: 'table_scan' }
+export const options = {
+    stages: [
+        { duration: '1m', target: 5 },   // Ramp up
+        { duration: '2m', target: 10 },  // Hold at moderate load
+        { duration: '5m', target: 20 },  // Increase load
+        { duration: '2m', target: 5 },   // Scale down
+        { duration: '1m', target: 0 }    // Cool down
     ],
-    lock_heavy: [
-        { url: '/lock_contention', weight: 2, tag: 'locks' },
-        { url: '/ddl_lock', weight: 1, tag: 'ddl' }
-    ],
-    memory_heavy: [
-        { url: '/memory_pressure', weight: 3, tag: 'memory' },
-        { url: '/huge_group_by', weight: 2, tag: 'aggregation' }
-    ],
-    search_scenario: [
-        { url: '/random_search', weight: 1, tag: 'search' }
-    ],
-    mixed: [
-        { url: '/health', weight: 1, tag: 'health' },
-        { url: '/complex_join', weight: 2, tag: 'complex_join' },
-        { url: '/random_search', weight: 2, tag: 'search' },
-        { url: '/huge_group_by', weight: 2, tag: 'aggregation' },
-        { url: '/low_selectivity', weight: 2, tag: 'table_scan' },
-        { url: '/lock_contention', weight: 1, tag: 'locks' },
-        { url: '/ddl_lock', weight: 1, tag: 'ddl' },
-        { url: '/memory_pressure', weight: 2, tag: 'memory' }
-    ]
+    thresholds: {
+        'http_req_duration': ['p(95)<2000'], // 95% of requests under 2s
+        'error_rate': ['rate<0.1'],          // Error rate under 10%
+        'success_rate': ['rate>0.9']         // Success rate over 90%
+    },
+    setupTimeout: '30s'
 };
 
-// Helper function to pick endpoint based on weights
-function pickEndpoint(scenario) {
-    const endpoints = scenarios[scenario];
-    const totalWeight = endpoints.reduce((sum, e) => sum + e.weight, 0);
-    let r = Math.random() * totalWeight;
+const API_BASE = 'http://api:3000';
+
+const ENDPOINTS = [
+    { path: '/health', weight: 1 },
+    { path: '/complex_join', weight: 3 },
+    { path: '/random_search', weight: 3 },
+    { path: '/aggregation', weight: 2 },
+    { path: '/memory_pressure', weight: 2 }
+];
+
+function selectEndpoint() {
+    const totalWeight = ENDPOINTS.reduce((sum, ep) => sum + ep.weight, 0);
+    let random = Math.random() * totalWeight;
     
-    for (const endpoint of endpoints) {
-        if (r < endpoint.weight) return endpoint;
-        r -= endpoint.weight;
+    for (const endpoint of ENDPOINTS) {
+        if (random < endpoint.weight) return endpoint.path;
+        random -= endpoint.weight;
     }
-    
-    return endpoints[0];
+    return ENDPOINTS[0].path;
 }
 
-// NewRelic event recording
-function recordNewRelicEvent(eventType, attributes) {
-    if (!newRelicConfig.apiKey) return; // Skip if no API key
-
-    const payload = [{
-        eventType,
-        timestamp: Date.now(),
-        ...attributes
-    }];
-
-    http.post(newRelicConfig.insightsEndpoint,
-        JSON.stringify(payload),
-        {
-            headers: {
-                'X-Insert-Key': newRelicConfig.apiKey,
-                'Content-Type': 'application/json'
-            }
+export function setup() {
+    console.log('Setting up load test...');
+    const maxRetries = 10;
+    const retryDelay = 3;
+    
+    for (let i = 0; i < maxRetries; i++) {
+        const res = http.get(`${API_BASE}/health`);
+        if (res.status === 200) {
+            console.log('API is ready');
+            return;
         }
-    );
+        console.log(`API not ready, attempt ${i + 1}/${maxRetries}`);
+        sleep(retryDelay);
+    }
+    throw new Error('API failed to become ready');
 }
 
-// Common request execution function
-function executeRequest(endpoint, scenario) {
-    const startTime = Date.now();
-    const url = `${baseUrl}${endpoint.url}`;
+export default function() {
+    const endpoint = selectEndpoint();
+    const url = `${API_BASE}${endpoint}`;
+    const start = new Date();
     
-    const res = http.get(url, {
-        tags: { endpoint: endpoint.url, scenario, type: endpoint.tag }
-    });
+    const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    };
     
-    const duration = Date.now() - startTime;
+    const response = http.get(url, { headers });
+    const duration = new Date() - start;
     
     // Record metrics
-    dbLatency.add(duration, { endpoint: endpoint.url });
-    queryCount.add(1, { endpoint: endpoint.url });
-    throughputRate.add(1);
-    errorRate.add(res.status !== 200);
-    slowQueryRate.add(duration > 1000); // Mark queries over 1s as slow
+    dbLatency.add(duration);
+    requestCount.add(1);
+    errorRate.add(response.status !== 200);
+    successRate.add(response.status === 200);
     
-    // Record to New Relic
-    recordNewRelicEvent('LoadTestQuery', {
-        endpoint: endpoint.url,
-        duration,
-        status: res.status,
-        scenario,
-        type: endpoint.tag,
-        success: res.status === 200
-    });
-    
-    // Validate response
-    check(res, {
+    // Verify response
+    check(response, {
         'status is 200': (r) => r.status === 200,
-        'response is valid': (r) => r.status === 200 && r.body.length > 0
+        'response has data': (r) => {
+            try {
+                const body = JSON.parse(r.body);
+                return body && typeof body === 'object';
+            } catch {
+                return false;
+            }
+        }
     });
     
-    // Variable sleep to prevent thundering herd
-    sleep(Math.random() * 0.5 + 0.1);
-}
-
-// Test scenarios
-export const options = {
-    scenarios: {
-        io_heavy: {
-            executor: 'constant-arrival-rate',
-            rate: parseInt(__ENV.K6_VUS) || 10,
-            timeUnit: '1s',
-            duration: __ENV.K6_DURATION || '5m',
-            preAllocatedVUs: 20,
-            maxVUs: 50,
-            exec: 'runIOHeavy',
-            tags: { scenario: 'io_heavy' }
-        },
-        lock_heavy: {
-            executor: 'constant-arrival-rate',
-            rate: Math.floor((parseInt(__ENV.K6_VUS) || 10) / 2),
-            timeUnit: '1s',
-            duration: __ENV.K6_DURATION || '5m',
-            preAllocatedVUs: 10,
-            maxVUs: 25,
-            exec: 'runLockHeavy',
-            tags: { scenario: 'lock_heavy' },
-            startTime: '1m'
-        },
-        memory_heavy: {
-            executor: 'ramping-arrival-rate',
-            startRate: 5,
-            timeUnit: '1s',
-            stages: [
-                { duration: '2m', target: 10 },
-                { duration: '5m', target: 20 },
-                { duration: '2m', target: 5 }
-            ],
-            preAllocatedVUs: 10,
-            maxVUs: 30,
-            exec: 'runMemoryHeavy',
-            tags: { scenario: 'memory_heavy' },
-            startTime: '2m'
-        },
-        search_scenario: {
-            executor: 'per-vu-iterations',
-            vus: parseInt(__ENV.K6_VUS) || 10,
-            iterations: 100,
-            maxDuration: __ENV.K6_DURATION || '5m',
-            exec: 'runSearchScenario',
-            tags: { scenario: 'search' },
-            startTime: '3m'
-        },
-        mixed: {
-            executor: 'ramping-vus',
-            startVUs: 5,
-            stages: [
-                { duration: '1m', target: 10 },
-                { duration: '3m', target: 20 },
-                { duration: '5m', target: 30 },
-                { duration: '1m', target: 5 }
-            ],
-            exec: 'runMixed',
-            tags: { scenario: 'mixed' },
-            startTime: '4m'
-        }
-    },
-    thresholds: {
-        'db_operation_latency': ['p(95)<2000'], // 95% of queries under 2s
-        'http_req_duration': ['p(95)<3000'],     // 95% of requests under 3s
-        'error_rate': ['rate<0.05'],             // Less than 5% errors
-        'slow_query_rate': ['rate<0.10']         // Less than 10% slow queries
-    }
-};
-
-// Scenario implementations
-export function runIOHeavy() {
-    const endpoint = pickEndpoint('io_heavy');
-    executeRequest(endpoint, 'io_heavy');
-}
-
-export function runLockHeavy() {
-    const endpoint = pickEndpoint('lock_heavy');
-    executeRequest(endpoint, 'lock_heavy');
-}
-
-export function runMemoryHeavy() {
-    const endpoint = pickEndpoint('memory_heavy');
-    executeRequest(endpoint, 'memory_heavy');
-}
-
-export function runSearchScenario() {
-    const endpoint = pickEndpoint('search_scenario');
-    executeRequest(endpoint, 'search');
-}
-
-export function runMixed() {
-    const endpoint = pickEndpoint('mixed');
-    executeRequest(endpoint, 'mixed');
-}
-
-// Setup and teardown hooks
-export function setup() {
-    recordNewRelicEvent('LoadTestStart', {
-        testConfig: JSON.stringify(options),
-        timestamp: Date.now()
-    });
+    // Random sleep between requests (0.5s to 2s)
+    sleep(Math.random() * 1.5 + 0.5);
 }
 
 export function teardown(data) {
-    recordNewRelicEvent('LoadTestEnd', {
-        testDuration: Date.now() - data.startTime,
-        totalQueries: queryCount.value,
+    console.log('Load test completed');
+    console.log('Final metrics:', {
+        totalRequests: requestCount.value,
         errorRate: errorRate.value,
+        successRate: successRate.value,
         avgLatency: dbLatency.avg,
         p95Latency: dbLatency.p(95)
     });
