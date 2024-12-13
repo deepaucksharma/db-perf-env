@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mysql:
     build:
@@ -11,11 +9,14 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_MONITOR_USER: ${MYSQL_MONITOR_USER}
+      MYSQL_MONITOR_PASSWORD: ${MYSQL_MONITOR_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
+      - ./db-setup/config:/etc/mysql/conf.d
     networks:
       - backend
     healthcheck:
@@ -35,6 +36,11 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       API_PORT: ${API_PORT}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
+      NODE_ENV: production
+    volumes:
+      - api_logs:/var/log/newrelic
     ports:
       - "${API_PORT}:3000"
     depends_on:
@@ -51,10 +57,58 @@ services:
       API_URL: http://api:3000
       K6_VUS: ${K6_VUS}
       K6_DURATION: ${K6_DURATION}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
     depends_on:
       - api
     networks:
       - backend
+
+  newrelic-infra:
+    image: newrelic/infrastructure:latest
+    container_name: newrelic-infra
+    user: root
+    cap_add:
+      - SYS_PTRACE
+    pid: host
+    environment:
+      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NRIA_DISPLAY_NAME=MySQL-Performance-Demo
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infrastructure/newrelic/newrelic-infra.yml:/etc/newrelic-infra.yml
+      - newrelic_logs:/var/log/newrelic-infra
+    networks:
+      - backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mkdir -p /var/log/newrelic-infra &&
+        chmod -R 777 /var/log/newrelic-infra &&
+        /usr/bin/newrelic-infra
+      "
+
+  newrelic-mysql:
+    image: newrelic/infrastructure:latest
+    container_name: newrelic-mysql
+    pid: host
+    environment:
+      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - MYSQL_HOSTNAME=mysql-db
+      - MYSQL_PORT=3306
+      - MYSQL_USERNAME=${MYSQL_MONITOR_USER}
+      - MYSQL_PASSWORD=${MYSQL_MONITOR_PASSWORD}
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - ./infrastructure/newrelic/mysql-config.yml:/etc/newrelic-infra/integrations.d/mysql-config.yml
+    networks:
+      - backend
+    depends_on:
+      mysql:
+        condition: service_healthy
 
 networks:
   backend:
@@ -63,3 +117,5 @@ networks:
 volumes:
   mysql_data:
   mysql_logs:
+  newrelic_logs:
+  api_logs:

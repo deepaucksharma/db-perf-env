@@ -1,17 +1,35 @@
 license_key: ${NEW_RELIC_LICENSE_KEY}
 display_name: MySQL-Performance-Demo
+
 custom_attributes:
   environment: performance_testing
   service: mysql_performance
+  team: database_performance
 
+log:
+  file: /var/log/newrelic-infra/newrelic-infra.log
+  level: info
+  to_stdout: true
+
+# Infrastructure monitoring settings
 enable_process_metrics: true
 strip_command_line: false
 
-log:
-  level: info
-  file: /var/log/newrelic-infra/newrelic-infra.log
+# Docker monitoring
+docker_enabled: true
+docker_use_daemon_socket: true
 
-# Integration configurations
-integrations_config:
-  protocol_version: 4
-  interval: 15s
+# Network monitoring
+network_metrics_enabled: true
+network_interface_filters:
+  include:
+    - eth0
+
+# Storage monitoring
+storage_metrics_enabled: true
+storage_sample_rate: 20s
+
+integrations:
+  - name: nri-mysql
+    interval: 15s
+    timeout: 30s

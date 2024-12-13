@@ -1,40 +1,11 @@
-integrations:
-  - name: nri-mysql
-    interval: 15s
+# infrastructure/newrelic/integrations.d/mysql-config.yml
+integration_name: com.newrelic.mysql
+
+instances:
+  - name: mysql-main
     command: all_data
-    env:
-      HOSTNAME: ${MYSQL_HOST}
-      PORT: ${MYSQL_PORT}
-      USERNAME: ${MYSQL_MONITOR_USER}
-      PASSWORD: ${MYSQL_MONITOR_PASSWORD}
-      REMOTE_MONITORING: true
-      EXTENDED_METRICS: true
-      EXTENDED_INNODB_METRICS: true
-      EXTENDED_PERFORMANCE_METRICS: true
-      TABLES_METRICS: true
-    labels:
-      environment: performance_testing
-      role: primary
-    inventory_source: config/mysql
-    config:
-      # Collect specific query metrics
-      slow_query_metrics: true
-      query_response_time_stats: true
-      
-      # InnoDB metrics collection
-      innodb_metrics:
-        buffer_pool_metrics: true
-        lock_metrics: true
-        page_metrics: true
-        
-      # Table metrics collection
-      table_metrics:
-        size_metrics: true
-        index_metrics: true
-        
-      # Specific table monitoring
-      tables:
-        - employees
-        - departments
-        - dept_emp
-        - salaries
+    arguments:
+      username: ${MYSQL_MONITOR_USER}
+      password: ${MYSQL_MONITOR_PASSWORD}
+      hostname: mysql
+      port: 3306

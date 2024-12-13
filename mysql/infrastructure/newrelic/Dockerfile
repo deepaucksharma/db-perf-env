@@ -1,7 +1,5 @@
-# infrastructure/newrelic/Dockerfile
-
 # Build stage for nri-mysql using a specific commit and modifying code
-FROM golang:1.23-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 # Install git and build essentials
 RUN apk add --no-cache git make
@@ -34,6 +32,9 @@ COPY --from=builder /go/src/github.com/newrelic/nri-mysql/bin/nri-mysql /var/db/
 
 # Set correct permissions
 RUN chmod 755 /var/db/newrelic-infra/newrelic-integrations/bin/nri-mysql
+
+# Create required directories
+RUN mkdir -p /etc/newrelic-infra/integrations.d
 
 # Verify binary works
 RUN /var/db/newrelic-infra/newrelic-integrations/bin/nri-mysql -show_version

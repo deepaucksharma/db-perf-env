@@ -9,7 +9,7 @@ import time
 from mysql.connector import Error
 
 logging.basicConfig(
-    level=os.getenv('LOG_LEVEL', 'INFO'),
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
         birth_date = fake.date_between(start_date='-65y', end_date='-25y')
         hire_date = fake.date_between(start_date='-20y', end_date='today')
         
+        # Generate employee
         employees.append((
             emp_no,
             birth_date,
@@ -49,8 +50,8 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
         current_date = hire_date
         base_salary = random.randint(30000, 70000)
         for year in range(random.randint(2, 4)):
-            salary = base_salary * (1 + year * 0.05)  # 5% raise each year
-            if random.random() < 0.05:  # 5% outliers
+            salary = base_salary * (1 + year * 0.05)
+            if random.random() < 0.05:
                 salary *= random.uniform(1.5, 2.0)
             
             to_date = date(9999, 1, 1) if year == 0 else \
@@ -59,8 +60,8 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
             salaries.append((emp_no, int(salary), current_date, to_date))
             current_date = to_date
         
-        # Department assignments with realistic distribution
-        num_depts = random.choices([1, 2], weights=[0.8, 0.2])[0]  # 80% in one dept, 20% in two
+        # Department assignments
+        num_depts = random.choices([1, 2], weights=[0.8, 0.2])[0]
         selected_depts = random.sample(departments, num_depts)
         for dept_no in selected_depts:
             dept_assignments.append((
@@ -88,7 +89,7 @@ def main():
             
             try:
                 employees, salaries, dept_assignments = generate_employee_batch(
-                    batch_start + 1000000,  # Starting emp_no
+                    batch_start + 1000000,
                     min(batch_size, total_employees - batch_start),
                     fake
                 )

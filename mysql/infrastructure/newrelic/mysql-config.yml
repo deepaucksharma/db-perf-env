@@ -1,0 +1,67 @@
+integrations:
+  - name: nri-mysql
+    interval: 15s
+    command: all_data
+    env:
+      HOSTNAME: ${MYSQL_HOST}
+      PORT: ${MYSQL_PORT}
+      USERNAME: ${MYSQL_MONITOR_USER}
+      PASSWORD: ${MYSQL_MONITOR_PASSWORD}
+      REMOTE_MONITORING: true
+      EXTENDED_METRICS: true
+      EXTENDED_INNODB_METRICS: true
+      EXTENDED_PERFORMANCE_METRICS: true
+      TABLES_METRICS: true
+    
+    config:
+      # Query performance monitoring
+      slow_query_metrics: true
+      query_response_time_stats: true
+      
+      # InnoDB metrics
+      innodb_metrics:
+        buffer_pool_metrics: true
+        lock_metrics: true
+        transaction_metrics: true
+        page_metrics: true
+        
+      # Table metrics
+      table_metrics:
+        size_metrics: true
+        index_metrics: true
+        
+      # Specific table monitoring
+      tables:
+        - departments
+        - employees
+        - salaries
+        - dept_emp
+
+      # Custom query monitoring
+      custom_metrics:
+        # Monitor employee distribution
+        - query: |
+            SELECT salary_tier, COUNT(*) as count
+            FROM employees
+            GROUP BY salary_tier
+          metrics:
+            - count
+          description: "Employee count by salary tier"
+        
+        # Monitor salary trends
+        - query: |
+            SELECT AVG(salary) as avg_salary
+            FROM salaries
+            WHERE to_date = '9999-01-01'
+          metrics:
+            - avg_salary
+          description: "Current average salary"
+        
+        # Lock contention monitoring
+        - query: |
+            SELECT COUNT(*) as locks
+            FROM performance_schema.events_waits_current
+            WHERE EVENT_NAME LIKE 'wait/lock%'
+          metrics:
+            - locks
+          description: "Current lock count"

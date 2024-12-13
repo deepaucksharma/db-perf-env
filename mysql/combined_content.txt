@@ -21,7 +21,8 @@ API_PORT=3000
 # Load Generator Configuration
 K6_VUS=50
 K6_DURATION=30m
-
+NEW_RELIC_LICENSE_KEY=eu01xx0ce15fea0f04db4b9d9ecce89dFFFFNRAL
+NEW_RELIC_APP_NAME=MySQL-Perf-Demo
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.example ######
 MYSQL_ROOT_PASSWORD=demo123
 MYSQL_DATABASE=employees
@@ -88,85 +89,6 @@ docker-compose.override.yml
 *.tmp
 *.temp
 .DS_Store
-
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\AzureDeploy.sh ######
-#!/bin/bash
-set -e
-
-# Load environment variables
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-else
-    echo ".env file not found!"
-    exit 1
-fi
-
-# Detect environment
-if [ -f /.dockerenv ]; then
-    ENVIRONMENT="docker"
-else
-    ENVIRONMENT="vm"
-fi
-
-echo "[INFO] Starting deployment in ${ENVIRONMENT} environment..."
-
-# VM-specific setup
-if [ "$ENVIRONMENT" = "vm" ]; then
-    echo "[INFO] Setting up VM environment..."
-    
-    # Install required packages
-    if ! command -v mysql &> /dev/null; then
-        sudo apt-get update
-        sudo apt-get install -y mysql-server python3 python3-pip
-        sudo systemctl start mysql
-    fi
-
-    # Copy MySQL configs
-    sudo mkdir -p /etc/mysql/conf.d
-    sudo cp db-setup/config/mysql.cnf /etc/mysql/conf.d/custom_mysql.cnf
-    sudo cp db-setup/config/performance-schema.cnf /etc/mysql/conf.d/performance_schema.cnf
-    sudo systemctl restart mysql
-fi
-
-# Wait for MySQL
-echo "[INFO] Waiting for MySQL..."
-max_attempts=30
-attempt=1
-while ! mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
-    if [ $attempt -eq $max_attempts ]; then
-        echo "Failed to connect to MySQL after $max_attempts attempts"
-        exit 1
-    fi
-    echo "Attempt $attempt of $max_attempts: MySQL not ready, waiting..."
-    sleep 2
-    ((attempt++))
-done
-
-# Initialize database
-echo "[INFO] Running migrations..."
-for migration in db-setup/migrations/V*.sql; do
-    echo "Running migration: $migration"
-    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < "$migration"
-done
-
-# Setup Python environment and run data scripts
-echo "[INFO] Setting up Python environment..."
-pip3 install --no-cache-dir -r db-setup/requirements.txt
-
-echo "[INFO] Running data setup scripts..."
-cd db-setup/scripts
-python3 create_tables.py
-python3 departments_data.py
-python3 load_data.py
-cd ../..
-
-# If in Docker environment, handle additional services
-if [ "$ENVIRONMENT" = "docker" ]; then
-    echo "[INFO] Starting Docker services..."
-    docker-compose up -d api load-generator
-fi
-
-echo "[INFO] Deployment completed successfully!"
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\combined_content.txt ######
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env ######
@@ -192,7 +114,8 @@ API_PORT=3000
 # Load Generator Configuration
 K6_VUS=50
 K6_DURATION=30m
-
+NEW_RELIC_LICENSE_KEY=eu01xx0ce15fea0f04db4b9d9ecce89dFFFFNRAL
+NEW_RELIC_APP_NAME=MySQL-Perf-Demo
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\.env.example ######
 MYSQL_ROOT_PASSWORD=demo123
 MYSQL_DATABASE=employees
@@ -260,89 +183,8 @@ docker-compose.override.yml
 *.temp
 .DS_Store
 
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\AzureDeploy.sh ######
-#!/bin/bash
-set -e
-
-# Load environment variables
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-else
-    echo ".env file not found!"
-    exit 1
-fi
-
-# Detect environment
-if [ -f /.dockerenv ]; then
-    ENVIRONMENT="docker"
-else
-    ENVIRONMENT="vm"
-fi
-
-echo "[INFO] Starting deployment in ${ENVIRONMENT} environment..."
-
-# VM-specific setup
-if [ "$ENVIRONMENT" = "vm" ]; then
-    echo "[INFO] Setting up VM environment..."
-    
-    # Install required packages
-    if ! command -v mysql &> /dev/null; then
-        sudo apt-get update
-        sudo apt-get install -y mysql-server python3 python3-pip
-        sudo systemctl start mysql
-    fi
-
-    # Copy MySQL configs
-    sudo mkdir -p /etc/mysql/conf.d
-    sudo cp db-setup/config/mysql.cnf /etc/mysql/conf.d/custom_mysql.cnf
-    sudo cp db-setup/config/performance-schema.cnf /etc/mysql/conf.d/performance_schema.cnf
-    sudo systemctl restart mysql
-fi
-
-# Wait for MySQL
-echo "[INFO] Waiting for MySQL..."
-max_attempts=30
-attempt=1
-while ! mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
-    if [ $attempt -eq $max_attempts ]; then
-        echo "Failed to connect to MySQL after $max_attempts attempts"
-        exit 1
-    fi
-    echo "Attempt $attempt of $max_attempts: MySQL not ready, waiting..."
-    sleep 2
-    ((attempt++))
-done
-
-# Initialize database
-echo "[INFO] Running migrations..."
-for migration in db-setup/migrations/V*.sql; do
-    echo "Running migration: $migration"
-    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < "$migration"
-done
-
-# Setup Python environment and run data scripts
-echo "[INFO] Setting up Python environment..."
-pip3 install --no-cache-dir -r db-setup/requirements.txt
-
-echo "[INFO] Running data setup scripts..."
-cd db-setup/scripts
-python3 create_tables.py
-python3 departments_data.py
-python3 load_data.py
-cd ../..
-
-# If in Docker environment, handle additional services
-if [ "$ENVIRONMENT" = "docker" ]; then
-    echo "[INFO] Starting Docker services..."
-    docker-compose up -d api load-generator
-fi
-
-echo "[INFO] Deployment completed successfully!"
-
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\docker-compose.yml ######
-version: '3.8'
-
 services:
   mysql:
     build:
@@ -354,11 +196,14 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_MONITOR_USER: ${MYSQL_MONITOR_USER}
+      MYSQL_MONITOR_PASSWORD: ${MYSQL_MONITOR_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
+      - ./db-setup/config:/etc/mysql/conf.d
     networks:
       - backend
     healthcheck:
@@ -378,6 +223,11 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       API_PORT: ${API_PORT}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
+      NODE_ENV: production
+    volumes:
+      - api_logs:/var/log/newrelic
     ports:
       - "${API_PORT}:3000"
     depends_on:
@@ -394,10 +244,58 @@ services:
       API_URL: http://api:3000
       K6_VUS: ${K6_VUS}
       K6_DURATION: ${K6_DURATION}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
     depends_on:
       - api
     networks:
       - backend
+
+  newrelic-infra:
+    image: newrelic/infrastructure:latest
+    container_name: newrelic-infra
+    user: root
+    cap_add:
+      - SYS_PTRACE
+    pid: host
+    environment:
+      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NRIA_DISPLAY_NAME=MySQL-Performance-Demo
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infrastructure/newrelic/newrelic-infra.yml:/etc/newrelic-infra.yml
+      - newrelic_logs:/var/log/newrelic-infra
+    networks:
+      - backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mkdir -p /var/log/newrelic-infra &&
+        chmod -R 777 /var/log/newrelic-infra &&
+        /usr/bin/newrelic-infra
+      "
+
+  newrelic-mysql:
+    image: newrelic/infrastructure:latest
+    container_name: newrelic-mysql
+    pid: host
+    environment:
+      - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - MYSQL_HOSTNAME=mysql-db
+      - MYSQL_PORT=3306
+      - MYSQL_USERNAME=${MYSQL_MONITOR_USER}
+      - MYSQL_PASSWORD=${MYSQL_MONITOR_PASSWORD}
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - ./infrastructure/newrelic/mysql-config.yml:/etc/newrelic-infra/integrations.d/mysql-config.yml
+    networks:
+      - backend
+    depends_on:
+      mysql:
+        condition: service_healthy
 
 networks:
   backend:
@@ -406,42 +304,8 @@ networks:
 volumes:
   mysql_data:
   mysql_logs:
-
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\verify_setup.sh ######
-#!/bin/bash
-set -e
-
-echo "Verifying MySQL performance testing environment setup..."
-
-# Check required files exist
-required_files=(
-    ".env"
-    "docker-compose.yml"
-    "db-setup/Dockerfile"
-    "db-setup/migrations/01_init_schema.sql"
-    "db-setup/migrations/02_init_users.sh"
-    "db-setup/scripts/load_data.py"
-    "services/api/server.js"
-    "services/load-generator/scripts/load-test.js"
-)
-
-for file in "${required_files[@]}"; do
-    if [ ! -f "$file" ]; then
-        echo "Error: Required file $file not found!"
-        exit 1
-    fi
-done
-
-echo "File structure verified successfully."
-
-# Verify Docker and dependencies
-command -v docker >/dev/null 2>&1 || { echo "Docker is required but not installed."; exit 1; }
-command -v docker-compose >/dev/null 2>&1 || { echo "Docker Compose is required but not installed."; exit 1; }
-
-echo "Dependencies verified successfully."
-
-echo "Setup verification complete. You can now run: docker-compose up -d"
-
+  newrelic_logs:
+  api_logs:
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\config\mysql.cnf ######
 # MySQL Configuration
 [mysqld]
@@ -999,13 +863,61 @@ python3 /docker-entrypoint-initdb.d/load_data.py
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\Dockerfile ######
 FROM mysql:8.0
 
-COPY my.cnf /etc/mysql/conf.d/
-COPY init.sql /docker-entrypoint-initdb.d/
+# Install required utilities
+RUN microdnf update && \
+    microdnf install -y curl python3 python3-pip && \
+    microdnf clean all
 
-RUN chmod 0644 /etc/mysql/conf.d/my.cnf && \
-    chown mysql:mysql /etc/mysql/conf.d/my.cnf
+# Create required directories
+RUN mkdir -p /docker-entrypoint-initdb.d /flyway/sql /scripts /var/log/mysql && \
+    chown mysql:mysql /var/log/mysql
 
-CMD ["mysqld"]
+# Copy Flyway migrations
+COPY flyway/sql/ /flyway/sql/
+
+# Copy Python scripts and requirements
+COPY scripts/ /scripts/
+COPY requirements.txt /scripts/
+
+# Copy configuration files and set permissions
+COPY config/ /etc/mysql/conf.d/
+RUN chmod 644 /etc/mysql/conf.d/*.cnf && \
+    chown -R mysql:mysql /etc/mysql/conf.d/
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r /scripts/requirements.txt
+
+# Copy custom initialization script
+COPY init-db.sh /docker-entrypoint-initdb.d/
+
+# Set permissions
+RUN chmod +x /docker-entrypoint-initdb.d/init-db.sh && \
+    chmod -R 755 /scripts
+
+EXPOSE 3306
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD mysqladmin ping -h"localhost" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\init-db.sh ######
+#!/bin/bash
+set -e
+
+# Wait for MySQL to be ready
+while ! mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+    echo "Waiting for MySQL to be ready..."
+    sleep 2
+done
+
+echo "Running Flyway migrations..."
+for sql_file in /flyway/sql/V*__*.sql; do
+    echo "Executing $sql_file"
+    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < "$sql_file"
+done
+
+echo "Loading sample data..."
+cd /scripts && python3 load_data.py
+
+echo "Database initialization completed!"
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\init.sql ######
 CREATE DATABASE IF NOT EXISTS employees;
@@ -1052,6 +964,7 @@ explicit_defaults_for_timestamp=1
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\requirements.txt ######
 mysql-connector-python==8.0.28
+Faker==18.4.0
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\config\mysql.cnf ######
 [mysqld]
@@ -1072,17 +985,24 @@ join_buffer_size = 1M
 tmp_table_size = 32M
 max_heap_table_size = 32M
 
-# Connection Settings
-max_connections = 100
-thread_cache_size = 50
-wait_timeout = 28800
-interactive_timeout = 28800
+# Performance Schema Settings
+performance_schema = ON
+performance_schema_max_digest_length = 4096
+performance_schema_max_sql_text_length = 4096
 
-# Slow Query Logging
+# Monitoring instruments
+performance_schema_instrument = 'memory/%=ON'
+performance_schema_instrument = 'statement/%=ON'
+performance_schema_instrument = 'wait/lock/metadata/sql/mdl=ON'
+performance_schema_instrument = 'wait/lock/table/sql/handler=ON'
+performance_schema_instrument = 'table/%=ON'
+
+# Slow Query Log
 slow_query_log = 1
 slow_query_log_file = /var/log/mysql/slow.log
 long_query_time = 1
 log_queries_not_using_indexes = 1
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\config\performance-schema.cnf ######
 [mysqld]
 # Enable Performance Schema
@@ -1102,6 +1022,32 @@ performance_schema_consumer_events_statements_current = ON
 performance_schema_consumer_events_statements_history = ON
 performance_schema_consumer_events_statements_history_long = ON
 performance_schema_consumer_statements_digest = ON
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\flyway\sql\V3__setup_monitoring.sql ######
+-- Create monitoring user
+CREATE USER IF NOT EXISTS '${MYSQL_MONITOR_USER}'@'%' 
+IDENTIFIED BY '${MYSQL_MONITOR_PASSWORD}';
+
+-- Grant monitoring permissions
+GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* 
+TO '${MYSQL_MONITOR_USER}'@'%';
+
+GRANT SELECT ON performance_schema.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON sys.* TO '${MYSQL_MONITOR_USER}'@'%';
+GRANT SELECT ON information_schema.* TO '${MYSQL_MONITOR_USER}'@'%';
+
+-- Enable performance monitoring
+UPDATE performance_schema.setup_instruments 
+SET ENABLED = 'YES', TIMED = 'YES'
+WHERE NAME LIKE '%statement/%' 
+   OR NAME LIKE '%stage/%'
+   OR NAME LIKE '%wait/%';
+
+UPDATE performance_schema.setup_consumers
+SET ENABLED = 'YES'
+WHERE NAME LIKE '%events%';
+
+FLUSH PRIVILEGES;
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\migrations\01_init_schema.sql ######
 -- Initialize database
@@ -1451,7 +1397,7 @@ import time
 from mysql.connector import Error
 
 logging.basicConfig(
-    level=os.getenv('LOG_LEVEL', 'INFO'),
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -1478,6 +1424,7 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
         birth_date = fake.date_between(start_date='-65y', end_date='-25y')
         hire_date = fake.date_between(start_date='-20y', end_date='today')
         
+        # Generate employee
         employees.append((
             emp_no,
             birth_date,
@@ -1491,8 +1438,8 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
         current_date = hire_date
         base_salary = random.randint(30000, 70000)
         for year in range(random.randint(2, 4)):
-            salary = base_salary * (1 + year * 0.05)  # 5% raise each year
-            if random.random() < 0.05:  # 5% outliers
+            salary = base_salary * (1 + year * 0.05)
+            if random.random() < 0.05:
                 salary *= random.uniform(1.5, 2.0)
             
             to_date = date(9999, 1, 1) if year == 0 else \
@@ -1501,8 +1448,8 @@ def generate_employee_batch(start_emp_no, batch_size, fake):
             salaries.append((emp_no, int(salary), current_date, to_date))
             current_date = to_date
         
-        # Department assignments with realistic distribution
-        num_depts = random.choices([1, 2], weights=[0.8, 0.2])[0]  # 80% in one dept, 20% in two
+        # Department assignments
+        num_depts = random.choices([1, 2], weights=[0.8, 0.2])[0]
         selected_depts = random.sample(departments, num_depts)
         for dept_no in selected_depts:
             dept_assignments.append((
@@ -1530,7 +1477,7 @@ def main():
             
             try:
                 employees, salaries, dept_assignments = generate_employee_batch(
-                    batch_start + 1000000,  # Starting emp_no
+                    batch_start + 1000000,
                     min(batch_size, total_employees - batch_start),
                     fake
                 )
@@ -1580,6 +1527,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\db-setup\scripts\run_load_data.sh ######
 #!/bin/bash
 set -e
@@ -1755,10 +1703,8 @@ custom_monitors:
       GROUP BY SUBSTRING_INDEX(event_name,'/',2)
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\Dockerfile ######
-# infrastructure/newrelic/Dockerfile
-
 # Build stage for nri-mysql using a specific commit and modifying code
-FROM golang:1.23-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 # Install git and build essentials
 RUN apk add --no-cache git make
@@ -1792,31 +1738,14 @@ COPY --from=builder /go/src/github.com/newrelic/nri-mysql/bin/nri-mysql /var/db/
 # Set correct permissions
 RUN chmod 755 /var/db/newrelic-infra/newrelic-integrations/bin/nri-mysql
 
+# Create required directories
+RUN mkdir -p /etc/newrelic-infra/integrations.d
+
 # Verify binary works
 RUN /var/db/newrelic-infra/newrelic-integrations/bin/nri-mysql -show_version
 
 ENTRYPOINT ["/usr/bin/newrelic-infra"]
-
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\newrelic-infra.yml ######
-license_key: ${NEW_RELIC_LICENSE_KEY}
-display_name: MySQL-Performance-Demo
-custom_attributes:
-  environment: performance_testing
-  service: mysql_performance
-
-enable_process_metrics: true
-strip_command_line: false
-
-log:
-  level: info
-  file: /var/log/newrelic-infra/newrelic-infra.log
-
-# Integration configurations
-integrations_config:
-  protocol_version: 4
-  interval: 15s
-
-###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\integrations.d\mysql-config.yml ######
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\mysql-config.yml ######
 integrations:
   - name: nri-mysql
     interval: 15s
@@ -1831,32 +1760,164 @@ integrations:
       EXTENDED_INNODB_METRICS: true
       EXTENDED_PERFORMANCE_METRICS: true
       TABLES_METRICS: true
-    labels:
-      environment: performance_testing
-      role: primary
-    inventory_source: config/mysql
+    
     config:
-      # Collect specific query metrics
+      # Query performance monitoring
       slow_query_metrics: true
       query_response_time_stats: true
       
-      # InnoDB metrics collection
+      # InnoDB metrics
       innodb_metrics:
         buffer_pool_metrics: true
         lock_metrics: true
+        transaction_metrics: true
         page_metrics: true
         
-      # Table metrics collection
+      # Table metrics
       table_metrics:
         size_metrics: true
         index_metrics: true
         
       # Specific table monitoring
       tables:
-        - employees
         - departments
-        - dept_emp
+        - employees
         - salaries
+        - dept_emp
+
+      # Custom query monitoring
+      custom_metrics:
+        # Monitor employee distribution
+        - query: |
+            SELECT salary_tier, COUNT(*) as count
+            FROM employees
+            GROUP BY salary_tier
+          metrics:
+            - count
+          description: "Employee count by salary tier"
+        
+        # Monitor salary trends
+        - query: |
+            SELECT AVG(salary) as avg_salary
+            FROM salaries
+            WHERE to_date = '9999-01-01'
+          metrics:
+            - avg_salary
+          description: "Current average salary"
+        
+        # Lock contention monitoring
+        - query: |
+            SELECT COUNT(*) as locks
+            FROM performance_schema.events_waits_current
+            WHERE EVENT_NAME LIKE 'wait/lock%'
+          metrics:
+            - locks
+          description: "Current lock count"
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\newrelic-infra.yml ######
+license_key: ${NEW_RELIC_LICENSE_KEY}
+display_name: MySQL-Performance-Demo
+
+custom_attributes:
+  environment: performance_testing
+  service: mysql_performance
+  team: database_performance
+
+log:
+  file: /var/log/newrelic-infra/newrelic-infra.log
+  level: info
+  to_stdout: true
+
+# Infrastructure monitoring settings
+enable_process_metrics: true
+strip_command_line: false
+
+# Docker monitoring
+docker_enabled: true
+docker_use_daemon_socket: true
+
+# Network monitoring
+network_metrics_enabled: true
+network_interface_filters:
+  include:
+    - eth0
+
+# Storage monitoring
+storage_metrics_enabled: true
+storage_sample_rate: 20s
+
+integrations:
+  - name: nri-mysql
+    interval: 15s
+    timeout: 30s
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\setup.sh ######
+#!/bin/bash
+mkdir -p /var/log/newrelic-infra
+chown -R 1:1 /var/log/newrelic-infra
+chmod -R 755 /var/log/newrelic-infra
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\dashboards\mysql-performance.json ######
+{
+  "name": "MySQL Performance Dashboard",
+  "description": "Comprehensive MySQL performance monitoring",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Overview",
+      "widgets": [
+        {
+          "title": "Database Throughput",
+          "visualization": "billboard",
+          "nrql": "SELECT rate(count(*), 1 minute) FROM Transaction WHERE databaseCallCount > 0"
+        },
+        {
+          "title": "Slow Queries",
+          "visualization": "line_chart",
+          "nrql": "SELECT count(*) FROM DatabaseQuery WHERE duration > 1000 TIMESERIES"
+        },
+        {
+          "title": "Lock Contention",
+          "visualization": "area_chart",
+          "nrql": "SELECT average(locks) FROM CustomMetric WHERE metricName = 'current_lock_count' TIMESERIES"
+        },
+        {
+          "title": "Memory Usage",
+          "visualization": "area_chart",
+          "nrql": "SELECT average(memoryUsedBytes) FROM MysqlSample TIMESERIES"
+        }
+      ]
+    },
+    {
+      "name": "Query Analysis",
+      "widgets": [
+        {
+          "title": "Top Time-Consuming Queries",
+          "visualization": "table",
+          "nrql": "SELECT average(duration) FROM DatabaseQuery FACET query LIMIT 10"
+        },
+        {
+          "title": "Query Patterns",
+          "visualization": "pie_chart",
+          "nrql": "SELECT count(*) FROM DatabaseQuery FACET category LIMIT 10"
+        }
+      ]
+    }
+  ]
+}
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\infrastructure\newrelic\integrations.d\mysql-config.yml ######
+# infrastructure/newrelic/integrations.d/mysql-config.yml
+integration_name: com.newrelic.mysql
+
+instances:
+  - name: mysql-main
+    command: all_data
+    arguments:
+      username: ${MYSQL_MONITOR_USER}
+      password: ${MYSQL_MONITOR_PASSWORD}
+      hostname: mysql
+      port: 3306
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\monitoring\newrelic\config.yml ######
 integrations:
@@ -1893,6 +1954,48 @@ integrations:
         - dept_emp
         - salaries
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\analyze_performance.sh ######
+#!/bin/bash
+
+echo "Analyzing database performance..."
+
+# Check slow queries
+docker-compose exec mysql mysql -u"$MYSQL_MONITOR_USER" -p"$MYSQL_MONITOR_PASSWORD" -e "
+    SELECT 
+        CONVERT(SQL_TEXT USING utf8) as query,
+        COUNT_STAR as count,
+        AVG_TIMER_WAIT/1000000000 as avg_latency_ms,
+        MAX_TIMER_WAIT/1000000000 as max_latency_ms
+    FROM performance_schema.events_statements_summary_by_digest
+    WHERE SCHEMA_NAME = '$MYSQL_DATABASE'
+    ORDER BY avg_latency_ms DESC
+    LIMIT 10
+"
+
+# Check lock contention
+docker-compose exec mysql mysql -u"$MYSQL_MONITOR_USER" -p"$MYSQL_MONITOR_PASSWORD" -e "
+    SELECT 
+        EVENT_NAME,
+        COUNT_STAR as count,
+        AVG_TIMER_WAIT/1000000000 as avg_wait_ms
+    FROM performance_schema.events_waits_summary_global_by_event_name
+    WHERE EVENT_NAME LIKE 'wait/lock%'
+    AND COUNT_STAR > 0
+    ORDER BY avg_wait_ms DESC
+"
+
+# Check memory usage
+docker-compose exec mysql mysql -u"$MYSQL_MONITOR_USER" -p"$MYSQL_MONITOR_PASSWORD" -e "
+    SELECT 
+        EVENT_NAME,
+        CURRENT_NUMBER_OF_BYTES_USED/1024/1024 as current_mb,
+        HIGH_NUMBER_OF_BYTES_USED/1024/1024 as high_mb
+    FROM performance_schema.memory_summary_global_by_event_name
+    WHERE CURRENT_NUMBER_OF_BYTES_USED > 0
+    ORDER BY current_mb DESC
+    LIMIT 10
+"
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\deploy-local.sh ######
 #!/bin/bash
 set -e
@@ -1908,91 +2011,498 @@ bash verify_environment.sh
 # Call verify_environment.sh
 bash verify_environment.sh
 
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\generate_test_data.py ######
+#!/usr/bin/env python3
+import mysql.connector
+import random
+import argparse
+from datetime import datetime, timedelta
+import os
+
+def create_salary_variations(conn, cursor):
+    """Create salary variations for performance testing"""
+    cursor.execute("""
+        UPDATE salaries s
+        JOIN employees e ON s.emp_no = e.emp_no
+        SET s.salary = 
+            CASE 
+                WHEN e.salary_tier = 1 THEN s.salary * 1.5
+                WHEN e.salary_tier = 2 THEN s.salary * 1.2
+                ELSE s.salary
+            END
+        WHERE s.to_date = '9999-01-01'
+    """)
+    conn.commit()
+
+def create_department_transfers(conn, cursor):
+    """Create department transfer history"""
+    cursor.execute("""
+        INSERT INTO dept_emp (emp_no, dept_no, from_date, to_date)
+        SELECT 
+            e.emp_no,
+            d.dept_no,
+            DATE_SUB(CURRENT_DATE, INTERVAL FLOOR(RAND() * 365) DAY),
+            '9999-01-01'
+        FROM employees e
+        CROSS JOIN departments d
+        WHERE RAND() < 0.1
+        AND NOT EXISTS (
+            SELECT 1 FROM dept_emp de 
+            WHERE de.emp_no = e.emp_no 
+            AND de.dept_no = d.dept_no
+        )
+        LIMIT 1000
+    """)
+    conn.commit()
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--variations', choices=['salaries', 'transfers', 'all'], 
+                       default='all', help='Type of variations to generate')
+    
+    args = parser.parse_args()
+    
+    conn = mysql.connector.connect(
+        host=os.getenv('MYSQL_HOST'),
+        user=os.getenv('MYSQL_USER'),
+        password=os.getenv('MYSQL_PASSWORD'),
+        database=os.getenv('MYSQL_DATABASE')
+    )
+    
+    cursor = conn.cursor()
+    
+    try:
+        if args.variations in ['salaries', 'all']:
+            print("Generating salary variations...")
+            create_salary_variations(conn, cursor)
+            
+        if args.variations in ['transfers', 'all']:
+            print("Generating department transfers...")
+            create_department_transfers(conn, cursor)
+            
+    finally:
+        cursor.close()
+        conn.close()
+
+if __name__ == "__main__":
+    main()
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\scripts\verify_setup.sh ######
+#!/bin/bash
+set -e
+
+echo "Verifying setup..."
+
+# Check MySQL connection
+echo "Checking MySQL connection..."
+if ! docker-compose exec mysql mysqladmin ping -h"localhost" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent; then
+    echo "Error: Cannot connect to MySQL"
+    exit 1
+fi
+
+# Check database tables
+echo "Checking database tables..."
+docker-compose exec mysql mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "
+    SELECT table_name, table_rows 
+    FROM information_schema.tables 
+    WHERE table_schema = '$MYSQL_DATABASE'
+" "$MYSQL_DATABASE"
+
+# Check API health
+echo "Checking API health..."
+if ! curl -s "http://localhost:$API_PORT/health" | grep -q "healthy"; then
+    echo "Error: API is not healthy"
+    exit 1
+fi
+
+# Check monitoring user
+echo "Checking monitoring user permissions..."
+docker-compose exec mysql mysql -u"$MYSQL_MONITOR_USER" -p"$MYSQL_MONITOR_PASSWORD" \
+    -e "SELECT COUNT(*) FROM performance_schema.setup_instruments WHERE enabled='YES'"
+
+echo "Verification completed successfully!"
+
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\Dockerfile ######
 FROM node:20-alpine
 
 WORKDIR /app
+
+# Copy package files first for better caching
 COPY package*.json ./
-RUN npm install --omit=dev
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application
 COPY . .
 
+# Set environment variables
+ENV NODE_ENV=production
+
+# Create directory for NewRelic logs
+RUN mkdir -p /var/log/newrelic
+
 EXPOSE 3000
+
+# Start the application
 CMD ["node", "server.js"]
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\newrelic.cjs ######
-'use strict';
+// Renamed to newrelic.cjs
+'use strict'
 
 exports.config = {
-  app_name: [process.env.NEW_RELIC_APP_NAME],
+  app_name: [process.env.NEW_RELIC_APP_NAME || 'MySQL-Performance-Demo-API'],
   license_key: process.env.NEW_RELIC_LICENSE_KEY,
   logging: {
     level: 'info',
-    enabled: true
+    filepath: '/var/log/newrelic/newrelic_agent.log'
   },
   allow_all_headers: true,
-  attributes: {
-    exclude: [
-      'request.headers.cookie',
-      'request.headers.authorization',
-      'request.headers.proxyAuthorization',
-      'request.headers.setCookie*',
-      'request.headers.x*',
-      'response.headers.cookie',
-      'response.headers.authorization',
-      'response.headers.proxyAuthorization',
-      'response.headers.setCookie*',
-      'response.headers.x*'
-    ]
+  distributed_tracing: {
+    enabled: true
+  },
+  transaction_tracer: {
+    enabled: true,
+    record_sql: 'raw',
+    explain_threshold: 500
   },
   slow_sql: {
     enabled: true
   }
-};
+}
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\package.json ######
 {
-  "name": "api-service",
+  "name": "mysql-perf-api",
   "version": "1.0.0",
-  "type": "module",
+  "type": "commonjs",
   "dependencies": {
-    "express": "^4.17.1",
-    "express-async-handler": "^1.1.4",
-    "mysql2": "^2.3.3"
-  },
-  "scripts": {
-    "start": "node server.js"
+    "express": "^4.18.2",
+    "express-async-handler": "^1.2.0",
+    "mysql2": "^3.6.5",
+    "newrelic": "^11.10.0"
   }
 }
-
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\server.js ######
+import newrelic from 'newrelic';
 import express from 'express';
 import { createPool } from 'mysql2/promise';
 import asyncHandler from 'express-async-handler';
 
 const app = express();
 
+// Enhanced pool configuration for better performance monitoring
 const pool = createPool({
     host: process.env.MYSQL_HOST,
+    port: process.env.MYSQL_PORT,
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
     database: process.env.MYSQL_DATABASE,
     waitForConnections: true,
-    connectionLimit: 10
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
 });
 
+// Custom NewRelic event recording with enhanced attributes
+function recordCustomEvent(eventType, attributes) {
+    newrelic.recordCustomEvent(eventType, {
+        ...attributes,
+        timestamp: Date.now(),
+        environment: process.env.NODE_ENV,
+        serverInstance: process.env.HOSTNAME
+    });
+}
+
+// Enhanced database query wrapper with NewRelic instrumentation
+async function executeQuery(query, params = [], customSegmentName = '') {
+    return await newrelic.startSegment(
+        customSegmentName || 'database-query',
+        true,
+        async () => {
+            const startTime = process.hrtime();
+            try {
+                const [results] = await pool.query(query, params);
+                const [s, ns] = process.hrtime(startTime);
+                const duration = s * 1000 + ns / 1000000;
+                
+                // Enhanced query metrics
+                newrelic.recordMetric(
+                    `Custom/Database/Query/${customSegmentName}`,
+                    duration
+                );
+                
+                // Record query execution details
+                recordCustomEvent('DatabaseQuery', {
+                    query: query.substring(0, 1000),
+                    duration,
+                    rowCount: results.length,
+                    paramCount: params.length,
+                    success: true,
+                    customSegment: customSegmentName
+                });
+                
+                return results;
+            } catch (error) {
+                // Enhanced error recording
+                recordCustomEvent('DatabaseError', {
+                    query: query.substring(0, 1000),
+                    error: error.message,
+                    code: error.code,
+                    state: error.sqlState,
+                    customSegment: customSegmentName
+                });
+                throw error;
+            }
+        }
+    );
+}
+
+// Basic health check
 app.get('/health', asyncHandler(async (req, res) => {
-    await pool.query('SELECT 1');
+    await executeQuery('SELECT 1', [], 'HealthCheck');
     res.json({ status: 'healthy' });
 }));
 
+// Complex join query
+app.get('/complex_join', asyncHandler(async (req, res) => {
+    const results = await executeQuery(
+        `SELECT e.emp_no, e.first_name, e.last_name, 
+                d.dept_name, s.salary, e.hire_date,
+                e.birth_date, e.gender
+         FROM employees e
+         JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
+         JOIN departments d ON d.dept_no = de.dept_no
+         JOIN salaries s ON s.emp_no = e.emp_no AND s.to_date = '9999-01-01'
+         WHERE e.hire_year >= 2000
+         AND d.dept_name IN ('IT', 'Sales', 'Research and Development')
+         ORDER BY s.salary DESC
+         LIMIT 5000`,
+        [],
+        'ComplexJoinQuery'
+    );
+    
+    newrelic.recordMetric('Custom/Results/ComplexJoin/RowCount', results.length);
+    res.json({ count: results.length, rows: results });
+}));
+
+// Random search with varying patterns
+app.get('/random_search', asyncHandler(async (req, res) => {
+    const searchType = Math.random();
+    let query, params, segmentName;
+
+    if (searchType < 0.33) {
+        const month = Math.floor(Math.random() * 12) + 1;
+        query = `
+            SELECT emp_no, first_name, last_name, birth_date, hire_date
+            FROM employees 
+            WHERE birth_month = ?
+            ORDER BY last_name ASC
+            LIMIT 1000
+        `;
+        params = [month];
+        segmentName = 'BirthMonthSearch';
+    } else if (searchType < 0.66) {
+        const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+        query = `
+            SELECT emp_no, first_name, last_name, birth_date, hire_date
+            FROM employees
+            WHERE last_name LIKE ?
+            ORDER BY hire_date DESC
+            LIMIT 1000
+        `;
+        params = [`${letter}%`];
+        segmentName = 'LastNameSearch';
+    } else {
+        const year = 1990 + Math.floor(Math.random() * 30);
+        query = `
+            SELECT emp_no, first_name, last_name, birth_date, hire_date
+            FROM employees
+            WHERE hire_year = ?
+            ORDER BY emp_no ASC
+            LIMIT 1000
+        `;
+        params = [year];
+        segmentName = 'HireYearSearch';
+    }
+
+    const results = await executeQuery(query, params, segmentName);
+    res.json({ count: results.length, rows: results });
+}));
+
+// Heavy aggregation query
+app.get('/huge_group_by', asyncHandler(async (req, res) => {
+    const results = await executeQuery(
+        `SELECT 
+            e.hire_year,
+            e.gender,
+            e.salary_tier,
+            COUNT(*) as emp_count,
+            AVG(s.salary) as avg_salary,
+            MIN(s.salary) as min_salary,
+            MAX(s.salary) as max_salary,
+            COUNT(DISTINCT d.dept_no) as dept_count
+         FROM employees e
+         JOIN salaries s ON e.emp_no = s.emp_no AND s.to_date = '9999-01-01'
+         JOIN dept_emp d ON e.emp_no = d.emp_no AND d.to_date = '9999-01-01'
+         GROUP BY e.hire_year, e.gender, e.salary_tier
+         HAVING emp_count > 10
+         ORDER BY hire_year DESC, avg_salary DESC`,
+        [],
+        'HugeGroupByQuery'
+    );
+    
+    newrelic.recordMetric('Custom/Results/GroupBy/Groups', results.length);
+    res.json({ count: results.length, rows: results });
+}));
+
+// Low selectivity query
+app.get('/low_selectivity', asyncHandler(async (req, res) => {
+    const gender = Math.random() < 0.5 ? 'M' : 'F';
+    const results = await executeQuery(
+        `SELECT 
+            e.emp_no, e.first_name, e.last_name, e.gender,
+            e.birth_date, e.hire_date, s.salary
+         FROM employees e
+         JOIN salaries s ON e.emp_no = s.emp_no
+         WHERE e.birth_date > '1970-01-01'
+         AND s.to_date = '9999-01-01'
+         AND e.gender = ?
+         ORDER BY e.birth_date ASC
+         LIMIT 10000`,
+        [gender],
+        'LowSelectivityQuery'
+    );
+    
+    res.json({ count: results.length, rows: results });
+}));
+
+// Memory pressure test
+app.get('/memory_pressure', asyncHandler(async (req, res) => {
+    const results = await executeQuery(
+        `SELECT 
+            e.emp_no, e.first_name, e.last_name, e.gender,
+            e.birth_date, e.hire_date, s.salary,
+            d.dept_name,
+            COUNT(*) OVER (PARTITION BY e.salary_tier) as tier_count
+         FROM employees e
+         JOIN salaries s ON e.emp_no = s.emp_no AND s.to_date = '9999-01-01'
+         JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
+         JOIN departments d ON de.dept_no = d.dept_no
+         WHERE s.salary > 50000
+         ORDER BY s.salary DESC
+         LIMIT 10000`,
+        [],
+        'MemoryPressureQuery'
+    );
+    
+    res.json({ count: results.length, rows: results });
+}));
+
+// Lock contention simulation
+app.get('/lock_contention', asyncHandler(async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        
+        await executeQuery(
+            `UPDATE salaries s
+             JOIN employees e ON s.emp_no = e.emp_no
+             SET s.salary = s.salary * 1.02
+             WHERE e.gender = 'M' 
+             AND s.to_date = '9999-01-01'
+             AND e.salary_tier IN (1, 2)`,
+            [],
+            'LockContentionQuery'
+        );
+        
+        // Hold locks for a while
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        await conn.commit();
+        res.json({ status: 'completed' });
+    } catch (error) {
+        await conn.rollback();
+        throw error;
+    } finally {
+        conn.release();
+    }
+}));
+
+// DDL lock simulation
+app.get('/ddl_lock', asyncHandler(async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        
+        await executeQuery(
+            `UPDATE departments 
+             SET manager_budget = manager_budget * 1.001 
+             WHERE dept_no IN ('d001', 'd002', 'd003')`,
+            [],
+            'DDLLockQuery'
+        );
+        
+        // Simulate concurrent DDL operation
+        setTimeout(async () => {
+            const conn2 = await pool.getConnection();
+            try {
+                await executeQuery(
+                    `ALTER TABLE salaries 
+                     ADD INDEX idx_temp_salary (salary) ALGORITHM=INPLACE`,
+                    [],
+                    'DDLOperation'
+                );
+            } catch (error) {
+                console.error("DDL error:", error);
+            } finally {
+                conn2.release();
+            }
+        }, 1000);
+
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        await conn.commit();
+        res.json({ status: 'completed' });
+    } catch (error) {
+        await conn.rollback();
+        throw error;
+    } finally {
+        conn.release();
+    }
+}));
+
+// Enhanced error handling
 app.use((err, req, res, next) => {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    newrelic.noticeError(err, {
+        requestUrl: req.url,
+        requestMethod: req.method,
+        custom: {
+            handler: req.route?.path,
+            query: req.query,
+            body: req.body
+        }
+    });
+    
+    console.error('Error:', err);
+    
+    res.status(500).json({ 
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
 });
 
-const port = process.env.API_PORT || 3000;
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+// Start server with enhanced logging
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    newrelic.recordCustomEvent('ServerStart', {
+        port: PORT,
+        environment: process.env.NODE_ENV,
+        timestamp: Date.now()
+    });
 });
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\api\database\schema.sql ######
 -- Create employees table
@@ -2035,23 +2545,283 @@ CREATE TABLE salaries (
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\load-generator\Dockerfile ######
 FROM grafana/k6:latest
+
 COPY scripts/ /scripts/
 WORKDIR /scripts
+
+ENV API_URL=http://api:3000
+ENV K6_VUS=10
+ENV K6_DURATION=5m
+
 CMD ["run", "load-test.js"]
+
+###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\load-generator\scripts\custom-metrics.js ######
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { Rate } from 'k6/metrics';
+
+// Custom metrics
+const errorRate = new Rate('error_rate');
+const queryLatency = new Trend('query_latency');
+
+// NewRelic custom events
+const newrelicEvents = {
+  apiEndpoint: 'https://insights-collector.newrelic.com/v1/accounts/${ACCOUNT_ID}/events',
+  licenseKey: __ENV.NEW_RELIC_LICENSE_KEY,
+  
+  recordEvent(eventType, attributes) {
+    const payload = {
+      eventType,
+      timestamp: Date.now(),
+      ...attributes
+    };
+    
+    http.post(
+      this.apiEndpoint,
+      JSON.stringify([payload]),
+      {
+        headers: {
+          'X-Insert-Key': this.licenseKey,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+};
 
 ###### File: C:\Users\hi\Desktop\SourceCode\db-perf-env\mysql\services\load-generator\scripts\load-test.js ######
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
 
-export const options = {
-    vus: 10,
-    duration: '30s'
+// Configuration
+const baseUrl = __ENV.API_URL || 'http://api:3000';
+const newRelicConfig = {
+    accountId: __ENV.NEW_RELIC_ACCOUNT_ID,
+    apiKey: __ENV.NEW_RELIC_LICENSE_KEY,
+    insightsEndpoint: `https://insights-collector.newrelic.com/v1/accounts/${__ENV.NEW_RELIC_ACCOUNT_ID}/events`
 };
 
-export default function() {
-    const response = http.get('http://api:3000/health');
-    check(response, {
-        'status is 200': (r) => r.status === 200
+// Custom metrics
+const dbLatency = new Trend('db_operation_latency');
+const errorRate = new Rate('error_rate');
+const queryCount = new Counter('queries_executed');
+const throughputRate = new Rate('throughput_rate');
+const slowQueryRate = new Rate('slow_query_rate');
+
+// Test scenarios configuration
+const scenarios = {
+    io_heavy: [
+        { url: '/complex_join', weight: 4, tag: 'complex_join' },
+        { url: '/huge_group_by', weight: 3, tag: 'aggregation' },
+        { url: '/low_selectivity', weight: 3, tag: 'table_scan' }
+    ],
+    lock_heavy: [
+        { url: '/lock_contention', weight: 2, tag: 'locks' },
+        { url: '/ddl_lock', weight: 1, tag: 'ddl' }
+    ],
+    memory_heavy: [
+        { url: '/memory_pressure', weight: 3, tag: 'memory' },
+        { url: '/huge_group_by', weight: 2, tag: 'aggregation' }
+    ],
+    search_scenario: [
+        { url: '/random_search', weight: 1, tag: 'search' }
+    ],
+    mixed: [
+        { url: '/health', weight: 1, tag: 'health' },
+        { url: '/complex_join', weight: 2, tag: 'complex_join' },
+        { url: '/random_search', weight: 2, tag: 'search' },
+        { url: '/huge_group_by', weight: 2, tag: 'aggregation' },
+        { url: '/low_selectivity', weight: 2, tag: 'table_scan' },
+        { url: '/lock_contention', weight: 1, tag: 'locks' },
+        { url: '/ddl_lock', weight: 1, tag: 'ddl' },
+        { url: '/memory_pressure', weight: 2, tag: 'memory' }
+    ]
+};
+
+// Helper function to pick endpoint based on weights
+function pickEndpoint(scenario) {
+    const endpoints = scenarios[scenario];
+    const totalWeight = endpoints.reduce((sum, e) => sum + e.weight, 0);
+    let r = Math.random() * totalWeight;
+    
+    for (const endpoint of endpoints) {
+        if (r < endpoint.weight) return endpoint;
+        r -= endpoint.weight;
+    }
+    
+    return endpoints[0];
+}
+
+// NewRelic event recording
+function recordNewRelicEvent(eventType, attributes) {
+    if (!newRelicConfig.apiKey) return; // Skip if no API key
+
+    const payload = [{
+        eventType,
+        timestamp: Date.now(),
+        ...attributes
+    }];
+
+    http.post(newRelicConfig.insightsEndpoint,
+        JSON.stringify(payload),
+        {
+            headers: {
+                'X-Insert-Key': newRelicConfig.apiKey,
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+}
+
+// Common request execution function
+function executeRequest(endpoint, scenario) {
+    const startTime = Date.now();
+    const url = `${baseUrl}${endpoint.url}`;
+    
+    const res = http.get(url, {
+        tags: { endpoint: endpoint.url, scenario, type: endpoint.tag }
     });
-    sleep(1);
+    
+    const duration = Date.now() - startTime;
+    
+    // Record metrics
+    dbLatency.add(duration, { endpoint: endpoint.url });
+    queryCount.add(1, { endpoint: endpoint.url });
+    throughputRate.add(1);
+    errorRate.add(res.status !== 200);
+    slowQueryRate.add(duration > 1000); // Mark queries over 1s as slow
+    
+    // Record to New Relic
+    recordNewRelicEvent('LoadTestQuery', {
+        endpoint: endpoint.url,
+        duration,
+        status: res.status,
+        scenario,
+        type: endpoint.tag,
+        success: res.status === 200
+    });
+    
+    // Validate response
+    check(res, {
+        'status is 200': (r) => r.status === 200,
+        'response is valid': (r) => r.status === 200 && r.body.length > 0
+    });
+    
+    // Variable sleep to prevent thundering herd
+    sleep(Math.random() * 0.5 + 0.1);
+}
+
+// Test scenarios
+export const options = {
+    scenarios: {
+        io_heavy: {
+            executor: 'constant-arrival-rate',
+            rate: parseInt(__ENV.K6_VUS) || 10,
+            timeUnit: '1s',
+            duration: __ENV.K6_DURATION || '5m',
+            preAllocatedVUs: 20,
+            maxVUs: 50,
+            exec: 'runIOHeavy',
+            tags: { scenario: 'io_heavy' }
+        },
+        lock_heavy: {
+            executor: 'constant-arrival-rate',
+            rate: Math.floor((parseInt(__ENV.K6_VUS) || 10) / 2),
+            timeUnit: '1s',
+            duration: __ENV.K6_DURATION || '5m',
+            preAllocatedVUs: 10,
+            maxVUs: 25,
+            exec: 'runLockHeavy',
+            tags: { scenario: 'lock_heavy' },
+            startTime: '1m'
+        },
+        memory_heavy: {
+            executor: 'ramping-arrival-rate',
+            startRate: 5,
+            timeUnit: '1s',
+            stages: [
+                { duration: '2m', target: 10 },
+                { duration: '5m', target: 20 },
+                { duration: '2m', target: 5 }
+            ],
+            preAllocatedVUs: 10,
+            maxVUs: 30,
+            exec: 'runMemoryHeavy',
+            tags: { scenario: 'memory_heavy' },
+            startTime: '2m'
+        },
+        search_scenario: {
+            executor: 'per-vu-iterations',
+            vus: parseInt(__ENV.K6_VUS) || 10,
+            iterations: 100,
+            maxDuration: __ENV.K6_DURATION || '5m',
+            exec: 'runSearchScenario',
+            tags: { scenario: 'search' },
+            startTime: '3m'
+        },
+        mixed: {
+            executor: 'ramping-vus',
+            startVUs: 5,
+            stages: [
+                { duration: '1m', target: 10 },
+                { duration: '3m', target: 20 },
+                { duration: '5m', target: 30 },
+                { duration: '1m', target: 5 }
+            ],
+            exec: 'runMixed',
+            tags: { scenario: 'mixed' },
+            startTime: '4m'
+        }
+    },
+    thresholds: {
+        'db_operation_latency': ['p(95)<2000'], // 95% of queries under 2s
+        'http_req_duration': ['p(95)<3000'],     // 95% of requests under 3s
+        'error_rate': ['rate<0.05'],             // Less than 5% errors
+        'slow_query_rate': ['rate<0.10']         // Less than 10% slow queries
+    }
+};
+
+// Scenario implementations
+export function runIOHeavy() {
+    const endpoint = pickEndpoint('io_heavy');
+    executeRequest(endpoint, 'io_heavy');
+}
+
+export function runLockHeavy() {
+    const endpoint = pickEndpoint('lock_heavy');
+    executeRequest(endpoint, 'lock_heavy');
+}
+
+export function runMemoryHeavy() {
+    const endpoint = pickEndpoint('memory_heavy');
+    executeRequest(endpoint, 'memory_heavy');
+}
+
+export function runSearchScenario() {
+    const endpoint = pickEndpoint('search_scenario');
+    executeRequest(endpoint, 'search');
+}
+
+export function runMixed() {
+    const endpoint = pickEndpoint('mixed');
+    executeRequest(endpoint, 'mixed');
+}
+
+// Setup and teardown hooks
+export function setup() {
+    recordNewRelicEvent('LoadTestStart', {
+        testConfig: JSON.stringify(options),
+        timestamp: Date.now()
+    });
+}
+
+export function teardown(data) {
+    recordNewRelicEvent('LoadTestEnd', {
+        testDuration: Date.now() - data.startTime,
+        totalQueries: queryCount.value,
+        errorRate: errorRate.value,
+        avgLatency: dbLatency.avg,
+        p95Latency: dbLatency.p(95)
+    });
 }
