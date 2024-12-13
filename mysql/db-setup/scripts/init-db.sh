@@ -1,29 +1,24 @@
 #!/bin/bash
 set -e
 
-mysql -u root -p"$MYSQL_ROOT_PASSWORD" << EOSQL
--- Create users
-CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
-CREATE USER IF NOT EXISTS '$MYSQL_MONITOR_USER'@'%' IDENTIFIED BY '$MYSQL_MONITOR_PASSWORD';
+# Wait for MySQL to be ready
+while ! mysqladmin ping -h"localhost" -u"root" -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+    echo "Waiting for MySQL to be ready..."
+    sleep 2
+done
 
--- Grant permissions
-GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
-GRANT SELECT, PROCESS, REPLICATION CLIENT ON *.* TO '$MYSQL_MONITOR_USER'@'%';
-GRANT SELECT ON performance_schema.* TO '$MYSQL_MONITOR_USER'@'%';
-GRANT SELECT ON sys.* TO '$MYSQL_MONITOR_USER'@'%';
-GRANT SELECT ON information_schema.* TO '$MYSQL_MONITOR_USER'@'%';
+# Run Flyway migrations in order
+echo "Running Flyway migrations..."
+for sql_file in /flyway/sql/V*__*.sql; do
+    echo "Executing $sql_file..."
+    mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < "$sql_file"
+done
 
--- Enable monitoring
-UPDATE performance_schema.setup_instruments 
-SET ENABLED = 'YES', TIMED = 'YES'
-WHERE NAME LIKE '%statement/%' 
-   OR NAME LIKE '%stage/%'
-   OR NAME LIKE '%wait/%'
-   OR NAME LIKE '%memory/%';
+# Load initial data
+echo "Loading department data..."
+cd /scripts && python3 departments_data.py
 
-UPDATE performance_schema.setup_consumers
-SET ENABLED = 'YES'
-WHERE NAME LIKE '%events%';
+echo "Loading employee data..."
+cd /scripts && python3 load_data.py
 
-FLUSH PRIVILEGES;
-EOSQL
+echo "Database initialization completed!"

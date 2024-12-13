@@ -2,9 +2,11 @@
 import mysql.connector
 import os
 import logging
+import json
+from faker import Faker
 from mysql.connector import Error
 
-logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'))
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DEPARTMENTS = [
@@ -20,37 +22,61 @@ DEPARTMENTS = [
     ('d010', 'Product Management')
 ]
 
+def get_env_or_fail(var_name: str) -> str:
+    value = os.getenv(var_name)
+    if value is None:
+        raise ValueError(f"Required environment variable {var_name} is not set")
+    return value
+
 def get_db_config():
     return {
         'host': os.getenv('MYSQL_HOST', 'localhost'),
-        'user': os.getenv('MYSQL_USER'),
-        'password': os.getenv('MYSQL_PASSWORD'),
-        'database': os.getenv('MYSQL_DATABASE'),
+        'user': get_env_or_fail('MYSQL_USER'),
+        'password': get_env_or_fail('MYSQL_PASSWORD'),
+        'database': get_env_or_fail('MYSQL_DATABASE'),
         'raise_on_warnings': True
     }
 
 def main():
+    fake = Faker()
     try:
         conn = mysql.connector.connect(**get_db_config())
         cursor = conn.cursor()
         
-        # Insert departments
+        # Insert departments with rich data
+        enriched_departments = [
+            (
+                dept_no,
+                dept_name,
+                fake.text(max_nb_chars=500),  # department_description
+                json.dumps({
+                    'created_by': 'system',
+                    'created_at': fake.date_time().isoformat(),
+                    'metadata': {
+                        'location': fake.city(),
+                        'cost_center': fake.random_number(digits=6),
+                        'reporting_line': fake.name()
+                    }
+                })  # audit_log
+            )
+            for dept_no, dept_name in DEPARTMENTS
+        ]
+        
         cursor.executemany(
-            """INSERT INTO departments (dept_no, dept_name)
-               VALUES (%s, %s)
-               ON DUPLICATE KEY UPDATE dept_name = VALUES(dept_name)""",
-            DEPARTMENTS
+            """INSERT INTO departments 
+               (dept_no, dept_name, department_description, audit_log)
+               VALUES (%s, %s, %s, %s)
+               ON DUPLICATE KEY UPDATE 
+               dept_name = VALUES(dept_name),
+               department_description = VALUES(department_description),
+               audit_log = VALUES(audit_log)""",
+            enriched_departments
         )
         
-        # Initialize manager_budget with realistic values
+        # Initialize manager_budget randomly
         cursor.execute("""
             UPDATE departments 
-            SET manager_budget = 
-                CASE 
-                    WHEN dept_name IN ('IT', 'Sales', 'Research and Development')
-                    THEN FLOOR(1500000 + RAND() * 500000)
-                    ELSE FLOOR(800000 + RAND() * 400000)
-                END
+            SET manager_budget = FLOOR(1000000 + RAND() * 1000000)
             WHERE manager_budget IS NULL
         """)
         

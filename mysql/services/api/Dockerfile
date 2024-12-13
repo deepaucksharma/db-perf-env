@@ -5,26 +5,28 @@ RUN apk --no-cache add curl
 
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --only=production
 
-# Copy the rest of the application
+# Copy application files
 COPY . .
 
-# Set environment variables
-ENV NODE_ENV=production
+# Create log directory
+RUN mkdir -p /var/log/app
 
-# Create directory for NewRelic logs
-RUN mkdir -p /var/log/newrelic
+# Environment variables
+ENV NODE_ENV=production \
+    PORT=3000
 
-# Add healthcheck
-HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
+# Expose port
 EXPOSE 3000
 
-# Start the application
+# Start application
 CMD ["node", "server.js"]

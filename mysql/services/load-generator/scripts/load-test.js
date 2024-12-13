@@ -1,38 +1,39 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Counter, Rate, Trend } from 'k6/metrics';
+import { Rate, Trend } from 'k6/metrics';
 
 // Custom metrics
-const dbLatency = new Trend('db_operation_latency');
 const errorRate = new Rate('error_rate');
 const successRate = new Rate('success_rate');
-const requestCount = new Counter('requests');
+const queryLatency = new Trend('query_latency');
+const requestsPerSecond = new Rate('requests_per_second');
 
+// Test configuration
 export const options = {
     stages: [
-        { duration: '1m', target: 5 },   // Ramp up
-        { duration: '2m', target: 10 },  // Hold at moderate load
-        { duration: '5m', target: 20 },  // Increase load
-        { duration: '2m', target: 5 },   // Scale down
-        { duration: '1m', target: 0 }    // Cool down
+        { duration: '2m', target: 50 },  // Ramp up
+        { duration: '25m', target: 50 }, // Stay at peak load
+        { duration: '3m', target: 0 }    // Ramp down
     ],
     thresholds: {
-        'http_req_duration': ['p(95)<2000'], // 95% of requests under 2s
-        'error_rate': ['rate<0.1'],          // Error rate under 10%
-        'success_rate': ['rate>0.9']         // Success rate over 90%
-    },
-    setupTimeout: '30s'
+        http_req_duration: ['p(95)<2000'], // 95% of requests under 2s
+        'error_rate': ['rate<0.1'],        // Error rate under 10%
+        'success_rate': ['rate>0.9'],      // Success rate over 90%
+        'requests_per_second': ['rate>30']  // At least 30 RPS
+    }
 };
 
-const API_BASE = 'http://api:3000';
+const API_BASE = __ENV.API_URL || 'http://api:3000';
 
+// Endpoint definitions with weights
 const ENDPOINTS = [
-    { path: '/health', weight: 1 },
-    { path: '/complex_join', weight: 3 },
     { path: '/random_search', weight: 3 },
-    { path: '/aggregation', weight: 2 }
+    { path: '/aggregation', weight: 2 },
+    { path: '/complex_join', weight: 3 },
+    { path: '/health', weight: 1 }
 ];
 
+// Endpoint selection based on weights
 function selectEndpoint() {
     const totalWeight = ENDPOINTS.reduce((sum, ep) => sum + ep.weight, 0);
     let random = Math.random() * totalWeight;
@@ -44,43 +45,33 @@ function selectEndpoint() {
     return ENDPOINTS[0].path;
 }
 
-export function setup() {
-    console.log('Setting up load test...');
-    const maxRetries = 10;
-    const retryDelay = 3;
-    
-    for (let i = 0; i < maxRetries; i++) {
-        const res = http.get(`${API_BASE}/health`);
-        if (res.status === 200) {
-            console.log('API is ready');
-            return;
-        }
-        console.log(`API not ready, attempt ${i + 1}/${maxRetries}`);
-        sleep(retryDelay);
-    }
-    throw new Error('API failed to become ready');
-}
-
+// VU script
 export default function() {
     const endpoint = selectEndpoint();
     const url = `${API_BASE}${endpoint}`;
     const start = new Date();
     
-    const headers = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    };
-    
-    const response = http.get(url, { headers });
+    const response = http.get(url);
     const duration = new Date() - start;
     
     // Record metrics
-    dbLatency.add(duration);
-    requestCount.add(1);
+    queryLatency.add(duration);
     errorRate.add(response.status !== 200);
     successRate.add(response.status === 200);
+    requestsPerSecond.add(1);
     
-    // Verify response
+    // Detailed logging for sample requests
+    if (Math.random() < 0.01) {
+        console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            endpoint,
+            status: response.status,
+            duration,
+            body: response.body.slice(0, 100) + '...'
+        }));
+    }
+    
+    // Response validation
     check(response, {
         'status is 200': (r) => r.status === 200,
         'response has data': (r) => {
@@ -93,17 +84,26 @@ export default function() {
         }
     });
     
-    // Random sleep between requests (0.5s to 2s)
-    sleep(Math.random() * 1.5 + 0.5);
+    // Random sleep between requests (0.5-1.5s)
+    sleep(Math.random() + 0.5);
+}
+
+// Test lifecycle hooks
+export function setup() {
+    console.log('Load test starting...');
+    // Verify API health before starting
+    const healthCheck = http.get(`${API_BASE}/health`);
+    check(healthCheck, {
+        'API is healthy': (r) => r.status === 200
+    });
 }
 
 export function teardown(data) {
     console.log('Load test completed');
     console.log('Final metrics:', {
-        totalRequests: requestCount.value,
         errorRate: errorRate.value,
         successRate: successRate.value,
-        avgLatency: dbLatency.avg,
-        p95Latency: dbLatency.p(95)
+        avgLatency: queryLatency.avg,
+        p95Latency: queryLatency.p(95)
     });
 }
