@@ -1,91 +1,90 @@
-services:
-  mysql:
+version: '3.8'
+
+services:    
+  hr-portal:
     build:
-      context: ./db-setup
-      dockerfile: Dockerfile
-    container_name: mysql-db
-    profiles: ["docker"]
+      context: ./hr-portal
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_MONITOR_USER: ${MYSQL_MONITOR_USER}
-      MYSQL_MONITOR_PASSWORD: ${MYSQL_MONITOR_PASSWORD}
+      - MYSQL_HOST=host.docker.internal
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NODE_ENV=production
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "${HR_PORTAL_PORT}:3000"
+    mem_limit: 2G
+    
+  payroll-system:
+    build:
+      context: ./payroll-system
+    environment:
+      - MYSQL_HOST=host.docker.internal
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NODE_ENV=production
+    ports:
+      - "3001:3001"
+    mem_limit: 2G
+
+  reporting-dashboard:
+    build:
+      context: ./reporting-dashboard
+    environment:
+      - MYSQL_HOST=host.docker.internal
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NODE_ENV=production
+    ports:
+      - "3002:3002"
+    mem_limit: 2G
+
+  performance-review:
+    build:
+      context: ./performance-review
+    environment:
+      - MYSQL_HOST=host.docker.internal
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NODE_ENV=production
+    ports:
+      - "3003:3003"
+    mem_limit: 2G
+
+  admin-console:
+    build:
+      context: ./admin-console
+    environment:
+      - MYSQL_HOST=host.docker.internal
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+      - NODE_ENV=production
+    ports:
+      - "3004:3004"
+    mem_limit: 2G
+
+  k6:
+    image: grafana/k6
     volumes:
-      - mysql_data:/var/lib/mysql
-      - mysql_logs:/var/log/mysql
-      - ./db-setup/config:/etc/mysql/conf.d
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "$MYSQL_USER", "-p$MYSQL_PASSWORD"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
-
-  api:
-    build:
-      context: ./services/api
-      dockerfile: Dockerfile
-    container_name: employees-api
-    profiles: ["docker", "local"]
+      - ./k6:/scripts
     environment:
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT:-3306}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      API_PORT: ${API_PORT}
-      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
-      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
-      NODE_ENV: ${NODE_ENV:-production}
-    ports:
-      - "${API_PORT}:3000"
-    networks:
-      - backend
+      - HR_PORTAL_URL=http://hr-portal:3000
+      - PAYROLL_SYSTEM_URL=http://payroll-system:3001
+      - REPORTING_DASHBOARD_URL=http://reporting-dashboard:3002
+      - PERFORMANCE_REVIEW_URL=http://performance-review:3003
+      - ADMIN_CONSOLE_URL=http://admin-console:3004
     depends_on:
-      mysql:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-    healthcheck:
-      test: curl -f http://localhost:3000/health || exit 1
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  load-generator:
-    build:
-      context: ./services/load-generator
-      dockerfile: Dockerfile
-    profiles: ["docker", "local"]
-    environment:
-      API_URL: http://api:3000
-      K6_VUS: ${K6_VUS:-10}
-      K6_DURATION: ${K6_DURATION:-5m}
-    networks:
-      - backend
-    depends_on:
-      api:
-        condition: service_healthy
-
-networks:
-  backend:
-    driver: bridge
-
-volumes:
-  mysql_data:
-  mysql_logs:
+      - hr-portal
+      - payroll-system
+      - reporting-dashboard
+      - performance-review
+      - admin-console
+    command: run /scripts/load-test.js
