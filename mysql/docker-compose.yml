@@ -5,7 +5,7 @@ services:
     build:
       context: ./hr-portal
     environment:
-      - MYSQL_HOST=host.docker.internal
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
@@ -19,7 +19,7 @@ services:
     build:
       context: ./payroll-system
     environment:
-      - MYSQL_HOST=host.docker.internal
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
@@ -33,7 +33,7 @@ services:
     build:
       context: ./reporting-dashboard
     environment:
-      - MYSQL_HOST=host.docker.internal
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
@@ -47,7 +47,7 @@ services:
     build:
       context: ./performance-review
     environment:
-      - MYSQL_HOST=host.docker.internal
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
@@ -61,7 +61,7 @@ services:
     build:
       context: ./admin-console
     environment:
-      - MYSQL_HOST=host.docker.internal
+      - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
